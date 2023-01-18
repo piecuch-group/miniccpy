@@ -8,5 +8,8 @@ for how to program high-level CC/EOMCC methodologies in Python using Numpy. Howe
 spin-orbital nature, it can, in principle, be used to perform fully relativistic calculations for 
 electronic, or even nuclear, structure.
 
+Miniccpy only deals with the correlated CC computation and uses Pyscf under the hood to obtain the mean-
+field (Hartree-Fock) solution and the associated one- and two-body molecular orbital integrals.
+
 # Contact
 Karthik Gururangan - gururang@msu.edu
