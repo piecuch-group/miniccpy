@@ -31,6 +31,7 @@ def get_integrals_from_pyscf(meanfield):
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
 
+
 def spatial_to_spinorb(e1int, e2int):
     """Convert spatial orbital integrals to spinorbital integrals."""
 

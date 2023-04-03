@@ -1,4 +1,5 @@
 import time
+import numpy as np
 from importlib import import_module
 
 from os.path import dirname, basename, isfile, join
@@ -9,13 +10,14 @@ modules = glob.glob(join(dirname(__file__), "*.py"))
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
 
+
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
     from pyscf import gto, scf
     from miniccpy.printing import print_system_information
-    from miniccpy.integrals import get_integrals_from_pyscf, get_fock
+    from miniccpy.integrals import get_integrals_from_pyscf
     from miniccpy.energy import hf_energy
 
     mol = gto.Mole()
@@ -53,6 +55,11 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, diis_size=
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
+
+    # Turn off DIIS for small systems; it becomes singular!
+    if fock.shape[0] <= 4: 
+        print("Turning off DIIS acceleration for small system")
+        diis_size = 1000 
 
     tic = time.time()
     T, e_corr = calculation(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core)
