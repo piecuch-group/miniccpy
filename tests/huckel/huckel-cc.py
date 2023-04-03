@@ -13,7 +13,7 @@ def polyene_cc(args):
         fock, g, o, v, h1, h2 = cyclic_huckel_model(args.n)
     
     # Run the CC calculation
-    T, E_corr = run_cc_calc(fock, g, o, v, method=args.method, convergence=1.0e-012)
+    T, E_corr = run_cc_calc(fock, g, o, v, method=args.method, convergence=1.0e-012, maxit=200, diis_size=10, energy_shift=0.1)
 
 
 if __name__ == "__main__":

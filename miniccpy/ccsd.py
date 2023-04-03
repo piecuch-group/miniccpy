@@ -69,14 +69,14 @@ def doubles_residual(t1, t2, f, g, o, v):
     return doubles_res
 
 
-def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core):
+def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core, energy_shift):
     """Solve the CCSD system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 
     eps = np.diagonal(fock)
     n = np.newaxis
-    e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o])
-    e_ai = 1.0 / (-eps[v, n] + eps[n, o])
+    e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o] + energy_shift)
+    e_ai = 1.0 / (-eps[v, n] + eps[n, o] + energy_shift)
 
     nunocc, nocc = e_ai.shape
     n1 = nocc * nunocc

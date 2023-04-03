@@ -101,16 +101,16 @@ def triples_residual(t1, t2, t3, f, g, o, v):
     return triples_res
 
 
-def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core):
+def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core, energy_shift):
     """Solve the CCSDT system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 
     eps = np.kron(np.diagonal(fock)[::2], np.ones(2))
     n = np.newaxis
     e_abcijk = 1.0 / (- eps[v, n, n, n, n, n] - eps[n, v, n, n, n, n] - eps[n, n, v, n, n, n]
-                    + eps[n, n, n, o, n, n] + eps[n, n, n, n, o, n] + eps[n, n, n, n, n, o] )
-    e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o])
-    e_ai = 1.0 / (-eps[v, n] + eps[n, o])
+                    + eps[n, n, n, o, n, n] + eps[n, n, n, n, o, n] + eps[n, n, n, n, n, o] + energy_shift )
+    e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o] + energy_shift )
+    e_ai = 1.0 / (-eps[v, n] + eps[n, o] + energy_shift )
 
     nunocc, nocc = e_ai.shape
     n1 = nocc * nunocc
