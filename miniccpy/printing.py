@@ -78,6 +78,7 @@ def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
             "  Number of unoccupied orbitals =",
             norbitals - nelectrons ,
     )
+    print("")
 
     HEADER_FMT = "{:>10} {:>20} {:>13} {:>13}"
     MO_FMT = "{:>10} {:>20.6f} {:>13} {:>13.1f}"

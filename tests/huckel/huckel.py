@@ -13,6 +13,21 @@ def linear_huckel_model(n):
         
     return fock, g, o, v, h1, h2
 
+def cyclic_huckel_model(n):
+    alpha = 0.0
+    beta = -1.0
+    
+    h1 = np.diag(alpha*np.ones(n)) + np.diag(beta*np.ones(n - 1), -1) + np.diag(beta*np.ones(n - 1), 1)
+    h1[0, -1] = beta
+    h1[-1, 0] = beta
+    h2 = np.zeros((n, n, n, n))
+    for i in range(n):
+        h2[i, i, i, i] = 2.0 * abs(beta)
+
+    fock, g, o, v = get_integrals(h1, h2)
+        
+    return fock, g, o, v, h1, h2
+
 def get_integrals(h1, h2):
     
     from miniccpy.integrals import spatial_to_spinorb, get_fock
