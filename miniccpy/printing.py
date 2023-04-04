@@ -58,7 +58,7 @@ def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
     """Print a nice output of the custom MO-defined molecular system."""
 
     norbitals = fock.shape[0]
-    mo_energy = np.diagonal(fock)
+    mo_energy = np.diag(fock)
     orbital_symmetries = ["C1"] * norbitals
     mo_occ = np.zeros(norbitals)
     mo_occ[:nelectrons] = 1.0

@@ -31,6 +31,34 @@ def get_integrals_from_pyscf(meanfield):
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
 
+def get_integrals_from_custom_hamiltonian(h1, h2):
+    
+    norbitals = h1.shape[0]
+    nelectron = h1.shape[0]
+
+    # Diagonalize one-body matrix to get Huckel eigenstates as the single-particle spatial orbital (MO) basis
+    mo_energy, mo_coeff = np.linalg.eigh(h1)
+
+    # Perform AO to MO transformation in spatial orbital basis 
+    e1int = np.einsum("ip,jq,ij->pq", mo_coeff, mo_coeff, h1, optimize=True)
+    e2int = np.einsum("ip,jq,kr,ls,ijkl->pqrs", mo_coeff, mo_coeff, mo_coeff, mo_coeff, h2, optimize=True)
+    # Convert from spatial orbitals to spin-orbitals
+    z, g = spatial_to_spinorb(e1int, e2int)
+    # Antisymmetrize two-body integrals
+    g -= np.transpose(g, (0, 1, 3, 2))
+
+    # Get correlated slicing arrays
+    o = slice(0, nelectron)
+    v = slice(nelectron, 2 * norbitals)
+
+    # build Fock matrix and HF energy
+    fock = get_fock(z, g, o)
+    e_hf = hf_energy(z, g, o)
+    e_hf_test = hf_energy_from_fock(fock, g, o)
+    assert(abs(e_hf - e_hf_test) < 1.0e-09)
+
+    return z, g, fock, o, v, e_hf
+
 
 def spatial_to_spinorb(e1int, e2int):
     """Convert spatial orbital integrals to spinorbital integrals."""

@@ -1,93 +1,71 @@
 import numpy as np
+from miniccpy.constants import eV_to_hartree, ang_to_bohr
+from miniccpy.integrals import get_integrals_from_custom_hamiltonian
+from miniccpy.printing import print_custom_system_information
 
-eV_to_hartree = 0.0367493
-ang_to_bohr = 1.88973
-
-def mataga_nishimoto(r, gamma00):
+def mataga_nishimoto(r, gamma):
     """Computes the two-body on-site and nearest-neighbor repulsion of the PPP
-    model parameterized using the Mataga-Nishimoto form,
-    gamma_{u,v} = e**2/(R_{uv} + a}, where a = e**2/gamma00.
-    gamma00 is the on-site repulsion term (equivalent to Hubbard U) and is given
-    by the difference between the valence state IP and EA.
-    R_{uv} is the seapration between adjacent sites, and can be approximated by 1.4 A for C-C bonds.
+    Hamiltonian parameterized using the Mataga-Nishimoto form.
+
+    gamma_ij = <ij|v|ij> = e**2/(r_ij + a), where a = e**2 / gamma
+    gamma = IP - EA of carbon atom (equivalent to Hubbard U parameter)
+    r_ij = |r_i - r_j|
+    
     [see Paldus and Piecuch, IJQC 42, 135 (1992)]."""
-    
-    a = 1.0/gamma00
-    return 1.0/(r + a)
 
-def linear_huckel_model(n):
-    # Huckel parameters
-    alpha = 0.0
-    beta = -2.4 * eV_to_hartree
-    # Mataga-Nishimoto parameters
-    gamma00 = 10.84 * eV_to_hartree
-    r = 1.4 * ang_to_bohr
+    if gamma != 0:
+        gamma_ij = 1.0/(r + 1.0/gamma)
+    else:
+        gamma_ij = 0.0
     
+    return gamma_ij
+
+def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4):
+    """Computes the 1-electron and 2-electron parts of the PPP Hamiltonian
+    and returns the resulting spinorbital MO integrals using eigenstates of
+    the one-electron Huckel part of the PPP Hamiltonian (i.e., Z) as the 
+    single-particle basis.
+    
+    Input:
+    ------
+       n : Number of electrons, or equivalently, number of C atoms
+       cyclic : True/False to specify Hamiltonian or linear or cyclic polyene
+       alpha : Huckel on-site one-electron energy (energy of p_z orbital in C); typically set to 0.
+       beta : Huckel resonance integral (hopping parameter); typical value is -2.4 eV.
+       gamma : Hubbard on-site electron-electron repulsion (U parameter); typical value is 10.84 eV.
+       r : Distance between nearest-neighbor C-C bonds; typical value is 1.4 angstrom.
+    """
+
+    # Model Hamiltonian parameters
+    alpha *= eV_to_hartree
+    beta *= eV_to_hartree
+    gamma *= eV_to_hartree
+    r *= ang_to_bohr
+    
+    # Compute the one-electron Huckel part
     h1 = np.diag(alpha*np.ones(n)) + np.diag(beta*np.ones(n - 1), -1) + np.diag(beta*np.ones(n - 1), 1)
+    if cyclic:
+        h1[0, -1] = beta
+        h1[-1, 0] = beta
+
+    # Compute the two-electron part, assuming on-site and nearest-neighbor interactions only
     h2 = np.zeros((n, n, n, n))
     for i in range(n):
-        for j in range(n):
-            if h1[i, j] != 0.0:
-                h2[i, j, i, j] = mataga_nishimoto(r, gamma00)
-
-    fock, g, o, v = get_integrals(h1, h2)
-        
-    return fock, g, o, v, h1, h2
-
-def cyclic_huckel_model(n):
-    # Huckel parameters
-    alpha = 0.0
-    beta = -2.4 * eV_to_hartree
-    # Mataga-Nishimoto parameters
-    gamma00 = 10.84 * eV_to_hartree
-    r = 1.4 * ang_to_bohr
-    
-    h1 = np.diag(alpha*np.ones(n)) + np.diag(beta*np.ones(n - 1), -1) + np.diag(beta*np.ones(n - 1), 1)
-    h1[0, -1] = beta
-    h1[-1, 0] = beta
-    h2 = np.zeros((n, n, n, n))
-    for i in range(n):
-        h2[i, i, i, i] = mataga_nishimoto(0, gamma00)
+        h2[i, i, i, i] = mataga_nishimoto(0, gamma)
         for j in range(i + 1, n):
             if h1[i, j] != 0.0:
-                h2[i, j, i, j] = mataga_nishimoto(r, gamma00)
-                h2[j, i, j, i] = mataga_nishimoto(r, gamma00)
+                h2[i, j, i, j] = mataga_nishimoto(r, gamma)
+                h2[j, i, j, i] = mataga_nishimoto(r, gamma)
 
-    fock, g, o, v = get_integrals(h1, h2)
-        
-    return fock, g, o, v, h1, h2
-
-def get_integrals(h1, h2):
-    
-    from miniccpy.integrals import spatial_to_spinorb, get_fock
-    from miniccpy.energy import hf_energy, hf_energy_from_fock
-    from miniccpy.printing import print_custom_system_information
-    
-    norbitals = h1.shape[0]
-    nelectron = h1.shape[0]
-
-    # Diagonalize one-body matrix to get Huckel eigenstates as the single-particle spatial orbital (MO) basis
-    mo_energy, mo_coeff = np.linalg.eigh(h1)
-
-    # Perform AO to MO transformation in spatial orbital basis 
-    e1int = np.einsum("ip,jq,ij->pq", mo_coeff, mo_coeff, h1, optimize=True)
-    e2int = np.einsum("ip,jq,kr,ls,ijkl->pqrs", mo_coeff, mo_coeff, mo_coeff, mo_coeff, h2, optimize=True)
-    # Convert from spatial orbitals to spin-orbitals
-    z, g = spatial_to_spinorb(e1int, e2int)
-    # Antisymmetrize two-body integrals
-    g -= np.transpose(g, (0, 1, 3, 2))
-
-    # Get correlated slicing arrays
-    o = slice(0, nelectron)
-    v = slice(nelectron, 2 * norbitals)
-
-    # build Fock matrix and HF energy
-    fock = get_fock(z, g, o)
-    e_hf = hf_energy(z, g, o)
-    e_hf_test = hf_energy_from_fock(fock, g, o)
-    assert(abs(e_hf - e_hf_test) < 1.0e-09)
+    z, g, fock, o, v, e_hf = get_integrals_from_custom_hamiltonian(h1, h2)
 
     # Print system information
-    print_custom_system_information(fock, nelectron, 0, e_hf)
+    print_custom_system_information(z, n, 0, e_hf)
     
-    return fock, g, o, v
+    energy_1e = np.einsum("ii->", z[o, o])
+    energy_2e = 0.5 * np.einsum("ijij->", g[o, o, o, o])
+    print("   1e- energy = ", energy_1e)
+    print("   2e- energy = ", energy_2e)
+    print("")
+
+    return z, g, fock, o, v, e_hf

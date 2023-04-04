@@ -1,29 +1,26 @@
 Metadata-Version: 2.1
 Name: miniccpy
-Version: 0+untagged.7.g0a7ef27
+Version: 0+untagged.10.g6bdd167.dirty
 Summary: A small Python package for spin-orbital coupled-cluster computations
 Home-page: UNKNOWN
 Author: Karthik Gururangan
 Author-email: gururang@msu.edu
 License: BSD-3-Clause
+Description: # Miniccpy:
+        
+        Miniccpy is a small, general spin-orbital coupled-cluster (CC) package written in Python that implements
+        the standard ground-state single-reference CC approximations, such as CCSD, CCSDT, and CCSDTQ,
+        and a subset of their equation-of-motion (EOM) extensions, including EOMCCSD and EOMCCSDT, for describing
+        excited electronic states. At the moment, this package simply serves as a freely available demonstration
+        for how to program high-level CC/EOMCC methodologies in Python using Numpy. However, due to its generic
+        spin-orbital nature, it can, in principle, be used to perform fully relativistic calculations for 
+        electronic, or even nuclear, structure.
+        
+        Miniccpy only deals with the correlated CC computation and uses Pyscf under the hood to obtain the starting 
+        Hartree-Fock solution and the associated one- and two-body molecular orbital integrals.
+        
+        # Contact
+        Karthik Gururangan - gururang@msu.edu
+        
 Platform: UNKNOWN
 Description-Content-Type: text/markdown
-License-File: LICENSE
-
-# Miniccpy:
-
-Miniccpy is a small, general spin-orbital coupled-cluster (CC) package written in Python that implements
-the standard ground-state single-reference CC approximations, such as CCSD, CCSDT, and CCSDTQ,
-and a subset of their equation-of-motion (EOM) extensions, including EOMCCSD and EOMCCSDT, for describing
-excited electronic states. At the moment, this package simply serves as a freely available demonstration
-for how to program high-level CC/EOMCC methodologies in Python using Numpy. However, due to its generic
-spin-orbital nature, it can, in principle, be used to perform fully relativistic calculations for 
-electronic, or even nuclear, structure.
-
-Miniccpy only deals with the correlated CC computation and uses Pyscf under the hood to obtain the starting 
-Hartree-Fock solution and the associated one- and two-body molecular orbital integrals.
-
-# Contact
-Karthik Gururangan - gururang@msu.edu
-
-
