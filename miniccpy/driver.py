@@ -86,7 +86,7 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_eomcc_calc(T, fock, g, H1, H2, o, v, nroot, method, maxit=80, convergence=1.0e-07):
+def run_eomcc_calc(T, fock, H1, H2, o, v, nroot, method, maxit=80, convergence=1.0e-07):
     """Run the excited-state EOMCC calculation specified by `method`.
     Currently, this module only supports CIS initial guesses."""
 
@@ -102,7 +102,7 @@ def run_eomcc_calc(T, fock, g, H1, H2, o, v, nroot, method, maxit=80, convergenc
     calculation = getattr(mod, 'kernel')
 
     # get the initial guess
-    R0, omega0 = get_initial_guess(fock, g, o, v, nroot) 
+    R0, omega0 = get_initial_guess(H1, H2, o, v, nroot) 
 
     R = [0 for i in range(nroot)]
     omega = [0 for i in range(nroot)]
