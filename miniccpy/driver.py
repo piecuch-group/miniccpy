@@ -10,8 +10,24 @@ modules = glob.glob(join(dirname(__file__), "*.py"))
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
 
+def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0):
+    """Obtain the mean-field solution from GAMESS FCIDUMP file and 
+    return the necessary objects, including MO integrals and correlated
+    slicing arrays for the CC calculation"""
+    from miniccpy.integrals import get_integrals_from_gamess
+    from miniccpy.printing import print_custom_system_information
 
-def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0):
+    # 1-, 2-electron spinorbital integrals in physics notation
+    e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_gamess(fcidump, nelectron, norbitals)
+
+    corr_occ = slice(2 * nfrozen, nelectron)
+    corr_unocc = slice(nelectron, 2 * norbitals)
+
+    print_custom_system_information(fock, nelectron, nfrozen, e_hf)
+
+    return fock, e2int, e_hf, corr_occ, corr_unocc
+
+def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10, cartesian=False, unit="Bohr"):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
@@ -27,11 +43,16 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0):
         basis=basis,
         charge=charge,
         spin=multiplicity-1,
-        cart=False,
-        unit='Bohr',
+        cart=cartesian,
+        unit=unit,
         symmetry=True,
     )
     mf = scf.ROHF(mol)
+    # Put in SCF options for PySCF
+    mf.level_shift = level_shift
+    mf.damp = damp
+    mf.max_cycle = maxit
+    mf.conv_tol = convergence
     mf.kernel()
 
     # 1-, 2-electron spinorbital integrals in physics notation
@@ -44,7 +65,7 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0):
 
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
-def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, diis_size=6, n_start_diis=3, energy_shift=0.0, out_of_core=False):
+def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, shift=0.0, diis_size=6, n_start_diis=3, energy_shift=0.0, out_of_core=False):
     """Run the ground-state CC calculation specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -62,7 +83,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, diis_size=
         diis_size = 1000 
 
     tic = time.time()
-    T, e_corr = calculation(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, energy_shift, out_of_core)
+    T, e_corr = calculation(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, energy_shift, out_of_core)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
@@ -86,11 +107,27 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_eomcc_calc(T, fock, H1, H2, o, v, nroot, method, maxit=80, convergence=1.0e-07):
+def run_guess(H1, H2, o, v, nroot):
+    """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
+    from miniccpy.initial_guess import get_initial_guess
+
+    no, nu = H1[o, v].shape
+    nroot = min(nroot, no * nu)
+
+    # get the initial guess
+    R0, omega0 = get_initial_guess(H1, H2, o, v, nroot)
+    
+    print("Initial guess energies:")
+    for i, e in enumerate(omega0):
+        print("  Guess root ", i + 1, " = ", np.real(e))
+    print("")
+
+    return np.real(R0), np.real(omega0)
+
+def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, convergence=1.0e-07):
     """Run the excited-state EOMCC calculation specified by `method`.
     Currently, this module only supports CIS initial guesses."""
 
-    from miniccpy.initial_guess import get_initial_guess
 
     # check if requested EOMCC calculation is implemented in modules
     if method not in MODULES:
@@ -101,21 +138,22 @@ def run_eomcc_calc(T, fock, H1, H2, o, v, nroot, method, maxit=80, convergence=1
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
 
-    # get the initial guess
-    R0, omega0 = get_initial_guess(H1, H2, o, v, nroot) 
+    nroot = len(state_index)
 
     R = [0 for i in range(nroot)]
     omega = [0 for i in range(nroot)]
     r0 = [0 for i in range(nroot)]
     for n in range(nroot):
         tic = time.time()
-        R[n], omega[n], r0[n] = calculation(R0[:, n], T, omega0[n], H1, H2, o, v, maxit, convergence)
+        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n] - 1], T, omega0[state_index[n] - 1], H1, H2, o, v, maxit, convergence)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
 
         print("")
         print("    EOMCC Excitation Energy: {: 20.12f}".format(omega[n]))
+        print("    r0 = {: 20.12f}".format(r0[n]))
+        print("    REL = {: 20.12f}".format(rel))
         print("")
         print("EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
 

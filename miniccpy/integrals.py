@@ -31,6 +31,61 @@ def get_integrals_from_pyscf(meanfield):
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
 
+def get_integrals_from_gamess(fcidump, nelectron, norbitals):
+    """Obtain the molecular orbital integrals from GAMESS FCIDUMP file."""
+
+    e1int = np.zeros((norbitals, norbitals))
+    e2int = np.zeros((norbitals, norbitals, norbitals, norbitals))
+
+    with open(fcidump) as fp:
+
+        ct2body = 0
+        ct1body = 0
+        for ct, line in enumerate(fp.readlines()):
+
+            if ct < 4: continue
+
+            L = line.split()
+
+            Cf = float(L[0].replace("D", "E"))
+            p = int(L[1])-1
+            r = int(L[2])-1
+            q = int(L[3])-1
+            s = int(L[4])-1
+
+            if q !=-1 and s!= -1: # twobody term
+
+                e2int[p,r,q,s] = Cf
+                e2int[r,p,q,s] = Cf
+                e2int[p,r,s,q] = Cf
+                e2int[r,p,s,q] = Cf
+                e2int[q,s,p,r] = Cf
+                e2int[q,s,r,p] = Cf
+                e2int[s,q,p,r] = Cf
+                e2int[s,q,r,p] = Cf
+
+            elif q == -1 and s == -1 and p != -1: # onebody term
+                e1int[p,r] = Cf
+                e1int[r,p] = Cf
+
+            else: # nuclear repulsion
+                nuclear_repulsion = Cf
+
+    # Convert from chemist to physics notation
+    e2int = e2int.transpose(0, 2, 1, 3)
+
+    z, g = spatial_to_spinorb(e1int, e2int)
+    g -= np.transpose(g, (0, 1, 3, 2))
+
+    occ = slice(0, nelectron)
+    fock = get_fock(z, g, occ)
+    e_hf = hf_energy(z, g, occ)
+    e_hf_test = hf_energy_from_fock(fock, g, occ)
+
+    assert( abs(e_hf - e_hf_test) < 1.0e-09 )
+
+    return z, g, fock, e_hf + nuclear_repulsion, nuclear_repulsion
+
 def get_integrals_from_custom_hamiltonian(h1, h2):
     
     norbitals = h1.shape[0]

@@ -63,7 +63,7 @@ def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
     mo_occ = np.zeros(norbitals)
     mo_occ[:nelectrons] = 1.0
 
-    print(WHITESPACE, "System Information (Custom):")
+    print(WHITESPACE, "System Information:")
     print(WHITESPACE, "----------------------------------------------------")
     print(WHITESPACE, "  Number of correlated electrons =", nelectrons - 2 * nfrozen)
     print(WHITESPACE, "  Number of correlated orbitals =", norbitals - 2 * nfrozen)

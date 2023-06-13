@@ -3,8 +3,10 @@ README.md
 setup.cfg
 setup.py
 miniccpy/__init__.py
+miniccpy/accsd.py
 miniccpy/ccsd.py
 miniccpy/ccsdt.py
+miniccpy/ccsdt1.py
 miniccpy/ccsdtq.py
 miniccpy/constants.py
 miniccpy/diis.py

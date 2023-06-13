@@ -1,0 +1,6 @@
+numpy
+scipy
+pydantic
+setuptools
+art
+cclib

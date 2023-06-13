@@ -23,6 +23,14 @@ def calc_r0(r1, r2, H1, H2, omega, o, v):
 
     return r0/omega
 
+def calc_rel(r0, r1, r2):
+    """Calculate the relative excitation level (REL)"""
+    rel_0 = r0**2
+    rel_1 = np.einsum("ai,ai->", r1, r1, optimize=True)
+    rel_2 = 0.25 * np.einsum("abij,abij->", r2, r2, optimize=True)
+    rel = (rel_1 + 2.0 * rel_2)/(rel_0 + rel_1 + rel_2)
+    return rel
+
 def hf_energy(z, g, o):
     """Calculate the Hartree-Fock energy using the molecular orbital
     integrals in un-normal order (i.e., using Z and V), defined as
