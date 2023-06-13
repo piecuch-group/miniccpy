@@ -1,5 +1,34 @@
 import numpy as np
 
+def update_t1(t1, t2, residual, f, g, o, v, shift, quasi=False):
+
+    nu, no = t1.shape
+
+    # Quasilinearized update
+    if quasi:
+        # c(amie) = v(mnef) * t2(afin)
+        d2vo = np.zeros((nu, no))
+        for a in range(nu):
+            for i in range(no):
+                d2vo[a, i] = np.einsum("jb,bj->", g[o, o, v, v][i, :, a, :], t2[a, :, i, :], optimize=True)
+        #
+        d1v = np.zeros(nu)
+        for a in range(nu):
+            d1v[a] = 0.5 * np.einsum("jkb,bjk->", g[o, o, v, v][:, :, :, a], t2[a, :, :, :], optimize=True)
+        #
+        d1o = np.zeros(no)
+        for i in range(no):
+            d1o[i] = 0.5 * np.einsum("jbc,bcj->", g[o, o, v, v][:, i, :, :], t2[:, :, i, :], optimize=True)
+
+    for a in range(nu):
+        for i in range(no):
+            denom = f[o, o][i, i] - f[v, v][a, a]
+            if quasi:
+                denom += ( d1o[i] + d1v[a] + d2vo[a, i] )
+            
+            t1[a, i] += residual[a, i]/(denom - shift)
+    return t1
+
 def update_t2(t2, residual, f, g, o, v, shift, quasi=False):
     
     nu, _, no, _ = t2.shape
@@ -9,11 +38,11 @@ def update_t2(t2, residual, f, g, o, v, shift, quasi=False):
         # c(mi) = 1/2 v(mnef) * t2(efin) -> c(ii) = 1/2 v(inef) * t2(efin)
         d1v = np.zeros(nu)
         for a in range(nu):
-            d1v[a] = np.einsum("mnf,fmn->", g[o, o, v, v][:, :, a, :], t2[a, :, :, :], optimize=True)
+            d1v[a] = 0.5 * np.einsum("mnf,fmn->", g[o, o, v, v][:, :, a, :], t2[a, :, :, :], optimize=True)
         # c(ae) = 1/2 v(mnef) * t2(afmn)
         d1o = np.zeros(no)
         for i in range(no):
-            d1o[i] = np.einsum("nef,efn->", g[o, o, v, v][i, :, :, :], t2[:, :, i, :], optimize=True)
+            d1o[i] = 0.5 * np.einsum("nef,efn->", g[o, o, v, v][i, :, :, :], t2[:, :, i, :], optimize=True)
         # c(mnij) = 1/2 v(mnef) * t2(efij)
         d2o = np.zeros((no, no))
         for i in range(no):

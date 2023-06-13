@@ -4,7 +4,7 @@ from miniccpy.energy import cc_energy, hf_energy, hf_energy_from_fock
 from miniccpy.hbar import get_ccs_intermediates
 from miniccpy.diis import DIIS
 
-from miniccpy.updates import update_t2
+from miniccpy.updates import update_t1, update_t2
 
 def singles_residual(t1, t2, f, g, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
@@ -71,7 +71,7 @@ def doubles_residual(t1, t2, f, g, o, v):
     return doubles_res
 
 
-def kernel(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, out_of_core, energy_shift):
+def kernel(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, out_of_core, energy_shift, use_quasi):
     """Solve the CCSD system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 
@@ -103,9 +103,10 @@ def kernel(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, ou
 
         res_norm = np.linalg.norm(residual_singles) + np.linalg.norm(residual_doubles)
 
-        t1 += residual_singles * e_ai
+        #t1 += residual_singles * e_ai
+        t1 = update_t1(t1, t2, residual_singles, fock, g, o, v, shift, quasi=use_quasi)
         #t2 += residual_doubles * e_abij
-        t2 = update_t2(t2, residual_doubles, fock, g, o, v, shift, quasi=True)
+        t2 = update_t2(t2, residual_doubles, fock, g, o, v, shift, quasi=use_quasi)
 
         current_energy = cc_energy(t1, t2, fock, g, o, v)
         delta_e = np.abs(old_energy - current_energy)

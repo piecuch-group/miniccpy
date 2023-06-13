@@ -8,12 +8,12 @@ basis = 'ccpvdz'
 nfrozen = 2
 
 # Define molecule geometry and basis set
-geom = [['F', (0.0, 0.0, -1.0)], 
-        ['F', (0.0, 0.0,  1.0)]]
+geom = [['F', (0.0, 0.0, -2.66816)], 
+        ['F', (0.0, 0.0,  2.66816)]]
 
-fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, multiplicity=2, charge=1)
+fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, multiplicity=2, charge=1, maxit=200)
 
-T, E_corr = run_cc_calc(fock, g, o, v, method='ccsd', out_of_core=False)
+T, E_corr = run_cc_calc(fock, g, o, v, method='ccsd', out_of_core=False, use_quasi=True)
 
 
 from pyscf import gto, scf, cc

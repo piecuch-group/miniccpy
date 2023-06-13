@@ -27,7 +27,8 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0):
 
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
-def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10, cartesian=False, unit="Bohr"):
+def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
+            maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10, cartesian=False, unit="Bohr"):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
@@ -65,7 +66,8 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, maxit=200, lev
 
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
-def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, shift=0.0, diis_size=6, n_start_diis=3, energy_shift=0.0, out_of_core=False):
+def run_cc_calc(fock, g, o, v, method, 
+                maxit=80, convergence=1.0e-07, shift=0.0, diis_size=6, n_start_diis=3, energy_shift=0.0, out_of_core=False, use_quasi=False):
     """Run the ground-state CC calculation specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -83,7 +85,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, shift=0.0,
         diis_size = 1000 
 
     tic = time.time()
-    T, e_corr = calculation(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, energy_shift, out_of_core)
+    T, e_corr = calculation(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, energy_shift, out_of_core, use_quasi)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
