@@ -114,6 +114,9 @@ def triples_residual(t1, t2, t3, f, g, o, v, corr_slice, ints_slice):
     triples_res = -0.25 * np.einsum("amij,bcmk->abcijk", I_vooo, t2, optimize=True)
     triples_res += 0.25 * np.einsum("abie,ecjk->abcijk", I_vvov, t2, optimize=True)
 
+    # Diagram 1: -A(ij) h(mi) t(AbcmjK)
+    #            -h(MK) t(AbcijM)
+
 
     triples_res -= (1.0 / 12.0) * np.einsum("mK,Abcijm->AbcijK", H1[ints_slice["h"], ints_slice["H"]], t3[corr_slice["P"], :, :, :, :, corr_slice["h"]], optimize=True)
     triples_res -= (1.0 / 12.0) * np.einsum("mk,AbcjmI->AbcjkI", H1[o, o], t3[corr_slice["P"], :, :, :, :, corr_slice["h"]], optimize=True)
