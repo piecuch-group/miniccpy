@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: miniccpy
-Version: 0+untagged.14.g04d6036.dirty
+Version: 0+untagged.16.g3c93e5d.dirty
 Summary: A small Python package for spin-orbital coupled-cluster computations
 Author: Karthik Gururangan
 Author-email: gururang@msu.edu

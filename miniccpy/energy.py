@@ -31,6 +31,13 @@ def calc_rel(r0, r1, r2):
     rel = (rel_1 + 2.0 * rel_2)/(rel_0 + rel_1 + rel_2)
     return rel
 
+def calc_rel_ea(r1, r2):
+    """Calculate the relative excitation level (REL) for EA-EOMCC calculations"""
+    rel_1 = np.einsum("a,a->", r1, r1, optimize=True)
+    rel_2 = 0.5 * np.einsum("abj,abj->", r2, r2, optimize=True)
+    rel = (rel_1 + 2.0 * rel_2)/(rel_1 + rel_2)
+    return rel
+
 def hf_energy(z, g, o):
     """Calculate the Hartree-Fock energy using the molecular orbital
     integrals in un-normal order (i.e., using Z and V), defined as

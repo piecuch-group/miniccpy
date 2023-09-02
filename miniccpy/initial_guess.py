@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_initial_guess(f, g, o, v, nroot):
+def cis_guess(f, g, o, v, nroot):
     """Obtain the lowest `nroot` roots of the CIS Hamiltonian
     to serve as the initial guesses for the EOMCC calculations."""
 
@@ -15,6 +15,20 @@ def get_initial_guess(f, g, o, v, nroot):
 
     return R_guess, omega[:nroot]
 
+def eacis_guess(f, g, o, v, nroot):
+    """Obtain the lowest `nroot` roots of the 1p Hamiltonian
+    to serve as the initial guesses for the EA-EOMCC calculations."""
+
+    H = build_1p_hamiltonian(f, g, o, v)
+    omega, C = np.linalg.eig(H)
+    idx = np.argsort(omega)
+    omega = omega[idx]
+    C = C[:, idx]
+
+    # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+    R_guess, _ = np.linalg.qr(C[:, :nroot])
+
+    return R_guess, omega[:nroot]
 
 def build_cis_hamiltonian(f, g, o, v):
     """ Construct the CIS Hamiltonian with matrix elements
@@ -45,3 +59,22 @@ def build_cis_hamiltonian(f, g, o, v):
 
     return H
 
+def build_1p_hamiltonian(f, g, o, v):
+    """ Construct the CIS Hamiltonian with matrix elements
+        given by:
+        < a | H_N | b > = < a | f | b >
+    """
+
+    nunocc, nocc = f[v, o].shape
+
+    H = np.zeros((nunocc, nunocc))
+
+    ct1 = 0 
+    for a in range(nunocc):
+        ct2 = 0
+        for b in range(nunocc):
+            H[ct1, ct2] = f[v, v][a, b]
+            ct2 += 1
+        ct1 += 1
+
+    return H

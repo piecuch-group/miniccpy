@@ -109,15 +109,18 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot):
+def run_guess(H1, H2, o, v, nroot, method="cis"):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import get_initial_guess
+    from miniccpy.initial_guess import cis_guess, eacis_guess
 
     no, nu = H1[o, v].shape
     nroot = min(nroot, no * nu)
 
     # get the initial guess
-    R0, omega0 = get_initial_guess(H1, H2, o, v, nroot)
+    if method == "cis":
+        R0, omega0 = cis_guess(H1, H2, o, v, nroot)
+    elif method == "eacis":
+        R0, omega0 = eacis_guess(H1, H2, o, v, nroot)
     
     print("Initial guess energies:")
     for i, e in enumerate(omega0):
