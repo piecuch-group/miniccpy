@@ -28,7 +28,8 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0):
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
-            maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10, cartesian=False, unit="Bohr"):
+            maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10,
+            symmetry=None, cartesian=False, unit="Bohr"):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
@@ -37,8 +38,12 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     from miniccpy.integrals import get_integrals_from_pyscf
     from miniccpy.energy import hf_energy
 
-    mol = gto.Mole()
+    if symmetry is None:
+        point_group = True
+    else:
+        point_group = symmetry
 
+    mol = gto.Mole()
     mol.build(
         atom=geometry,
         basis=basis,
@@ -46,7 +51,7 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
         spin=multiplicity-1,
         cart=cartesian,
         unit=unit,
-        symmetry=True,
+        symmetry=point_group,
     )
     mf = scf.ROHF(mol)
     # Put in SCF options for PySCF
@@ -109,9 +114,9 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot, method="cis"):
+def run_guess(H1, H2, o, v, nroot, method):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, eacis_guess
+    from miniccpy.initial_guess import cis_guess, eacis_guess, ipcis_guess
 
     no, nu = H1[o, v].shape
     nroot = min(nroot, no * nu)
@@ -121,6 +126,8 @@ def run_guess(H1, H2, o, v, nroot, method="cis"):
         R0, omega0 = cis_guess(H1, H2, o, v, nroot)
     elif method == "eacis":
         R0, omega0 = eacis_guess(H1, H2, o, v, nroot)
+    elif method == "ipcis":
+        R0, omega0 = ipcis_guess(H1, H2, o, v, nroot)
     
     print("Initial guess energies:")
     for i, e in enumerate(omega0):
