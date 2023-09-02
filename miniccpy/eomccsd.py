@@ -26,8 +26,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
         R[:len(R0)] = R0
 
     # Allocate the B and sigma matrices
-    sigma = np.zeros((ndim, maxit))
-    B = np.zeros((ndim, maxit))
+    sigma = np.zeros((ndim, maxit+1))
+    B = np.zeros((ndim, maxit+1))
 
     # Initial values
     B[:, 0] = R
@@ -82,7 +82,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
                                  q[n1:].reshape(nunocc, nunocc, nocc, nocc),
                                  t1, t2, H1, H2, o, v)
     else:
-        raise ValueError("EOMCCSD iterations did not converge")
+        print("EOMCCSD iterations did not converge")
 
     # Calculate r0 for the root
     r0 = calc_r0(R[:n1].reshape(nunocc, nocc),

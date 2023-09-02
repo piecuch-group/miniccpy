@@ -26,9 +26,9 @@ def eacis_guess(f, g, o, v, nroot):
     C = C[:, idx]
 
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
-    R_guess, _ = np.linalg.qr(C[:, :nroot])
+    R_guess, _ = np.linalg.qr(C)
 
-    return R_guess, omega[:nroot]
+    return R_guess[:, :nroot], omega[:nroot]
 
 def build_cis_hamiltonian(f, g, o, v):
     """ Construct the CIS Hamiltonian with matrix elements

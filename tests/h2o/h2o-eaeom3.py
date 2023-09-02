@@ -5,7 +5,7 @@ os.environ["MKL_NUM_THREADS"] = "{}".format(os.cpu_count() - 1)
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
 basis = 'cc-pvdz'
-nfrozen = 1
+nfrozen = 0
 
 # Define molecule geometry and basis set
 geom = [['H', (0, 1.515263, -1.058898)], 
@@ -19,7 +19,7 @@ T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 
 R, omega_guess = run_guess(H1, H2, o, v, 10, method="eacis")
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eaeom3", state_index=[1, 3, 5])
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eaeom3", state_index=[1, 3, 5, 7])
 
 
 
