@@ -165,7 +165,7 @@ def quadruples_residual(t1, t2, t3, t4, f, g, o, v):
 
     return quadruples_residual
 
-def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core, energy_shift):
+def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi):
     """Solve the CCSDTQ system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 

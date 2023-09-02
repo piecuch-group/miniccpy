@@ -101,7 +101,7 @@ def triples_residual(t1, t2, t3, f, g, o, v):
     return triples_res
 
 
-def kernel(fock, g, o, v, maxit, convergence, diis_size, n_start_diis, out_of_core, energy_shift):
+def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi):
     """Solve the CCSDT system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 

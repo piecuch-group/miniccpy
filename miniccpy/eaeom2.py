@@ -1,7 +1,7 @@
 import time
 import numpy as np
 
-def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
+def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial
@@ -26,8 +26,9 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
         R[:len(R0)] = R0
 
     # Allocate the B and sigma matrices
-    sigma = np.zeros((ndim, maxit+1))
-    B = np.zeros((ndim, maxit+1))
+    sigma = np.zeros((ndim, max_size))
+    B = np.zeros((ndim, max_size))
+    restart_block = np.zeros((ndim, nrest))
 
     # Initial values
     B[:, 0] = R
@@ -38,7 +39,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
     print("    ==> EA-EOMCC(2p-1h) iterations <==")
     print("")
     print("     Iter               Energy                 |dE|                 |dR|")
-    for curr_size in range(1, maxit+1):
+    curr_size = 1
+    for niter in range(maxit):
         tic = time.time()
         # store old energy
         omega_old = omega
@@ -54,6 +56,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
         # Get the eigenpair of interest
         omega = np.real(e[idx[-1]])
         R = np.dot(B[:, :curr_size], alpha)
+        restart_block[:, niter % nrest] = R
 
         # calculate residual vector
         residual = np.dot(sigma[:, :curr_size], alpha) - omega * R
@@ -62,7 +65,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(curr_size, omega, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
         if res_norm < convergence and abs(delta_e) < convergence:
             break
 
@@ -77,10 +80,24 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
             q -= np.dot(b.T, q) * b
         q *= 1.0 / np.linalg.norm(q)
 
-        B[:, curr_size] = q
-        sigma[:, curr_size] = HR(q[:n1].reshape(nunocc),
-                                 q[n1:].reshape(nunocc, nunocc, nocc),
+        # If below maximum subspace size, expand the subspace
+        if curr_size < max_size:
+            B[:, curr_size] = q
+            sigma[:, curr_size] = HR(q[:n1].reshape(nunocc),
+                                     q[n1:].reshape(nunocc, nunocc, nocc),
+                                     t1, t2, H1, H2, o, v)
+        else:
+            # Basic restart - use the last approximation to the eigenvector
+            print("       **Deflating subspace**")
+            restart_block, _ = np.linalg.qr(restart_block)
+            for j in range(restart_block.shape[1]):
+                B[:, j] = restart_block[:, j]
+                sigma[:, j] = HR(restart_block[:n1, j].reshape(nunocc),
+                                 restart_block[n1:, j].reshape(nunocc, nunocc, nocc),
                                  t1, t2, H1, H2, o, v)
+            curr_size = restart_block.shape[1] - 1
+
+        curr_size += 1
     else:
         print("EA-EOMCC(2p-1h) iterations did not converge")
 

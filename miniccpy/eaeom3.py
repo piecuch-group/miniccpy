@@ -1,7 +1,7 @@
 import time
 import numpy as np
 
-def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
+def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial
@@ -28,8 +28,9 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
         R[:len(R0)] = R0
 
     # Allocate the B and sigma matrices
-    sigma = np.zeros((ndim, maxit+1))
-    B = np.zeros((ndim, maxit+1))
+    sigma = np.zeros((ndim, max_size))
+    B = np.zeros((ndim, max_size))
+    restart_block = np.zeros((ndim, nrest))
 
     # Initial values
     B[:, 0] = R
@@ -41,7 +42,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
     print("    ==> EA-EOMCC(3p-2h) iterations <==")
     print("")
     print("     Iter               Energy                 |dE|                 |dR|")
-    for curr_size in range(1, maxit+1):
+    curr_size = 1
+    for niter in range(maxit):
         tic = time.time()
         # store old energy
         omega_old = omega
@@ -57,6 +59,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
         # Get the eigenpair of interest
         omega = np.real(e[idx[-1]])
         R = np.dot(B[:, :curr_size], alpha)
+        restart_block[:, niter % nrest] = R
 
         # calculate residual vector
         residual = np.dot(sigma[:, :curr_size], alpha) - omega * R
@@ -65,7 +68,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(curr_size, omega, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
         if res_norm < convergence and abs(delta_e) < convergence:
             break
 
@@ -82,11 +85,26 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07):
             q -= np.dot(b.T, q) * b
         q *= 1.0 / np.linalg.norm(q)
 
-        B[:, curr_size] = q
-        sigma[:, curr_size] = HR(q[:n1].reshape(nunocc),
-                                 q[n1:n1+n2].reshape(nunocc, nunocc, nocc),
-                                 q[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc),
+        # If below maximum subspace size, expand the subspace
+        if curr_size < max_size:
+            B[:, curr_size] = q
+            sigma[:, curr_size] = HR(q[:n1].reshape(nunocc),
+                                     q[n1:n1+n2].reshape(nunocc, nunocc, nocc),
+                                     q[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc),
+                                     t1, t2, H1, H2, o, v)
+        else:
+            # Basic restart - use the last approximation to the eigenvector
+            print("       **Deflating subspace**")
+            restart_block, _ = np.linalg.qr(restart_block)
+            for j in range(restart_block.shape[1]):
+                B[:, j] = restart_block[:, j]
+                sigma[:, j] = HR(restart_block[:n1, j].reshape(nunocc),
+                                 restart_block[n1:n1+n2, j].reshape(nunocc, nunocc, nocc),
+                                 restart_block[n1+n2:, j].reshape(nunocc, nunocc, nunocc, nocc, nocc),
                                  t1, t2, H1, H2, o, v)
+            curr_size = restart_block.shape[1] - 1
+
+        curr_size += 1
     else:
         print("EA-EOMCC(3p-2h) iterations did not converge")
 
@@ -100,11 +118,11 @@ def update(r1, r2, r3, omega, e_a, e_abj, e_abcjk):
     """Perform the diagonally preconditioned residual (DPR) update
     to get the next correction vector."""
 
-    #for a, d_a in enumerate(e_a):
-    #    denom = omega - d_a
-    #    if denom == 0: continue
-    #    r1[a] /= denom
-    r1 /= (omega - e_a)
+    for a, d_a in enumerate(e_a):
+        denom = omega - d_a
+        if denom == 0: continue
+        r1[a] /= denom
+    #r1 /= (omega - e_a)
     r2 /= (omega - e_abj)
     r3 /= (omega - e_abcjk)
 
@@ -183,6 +201,4 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     X3 -= np.transpose(X3, (1, 0, 2, 3, 4)) + np.transpose(X3, (2, 1, 0, 3, 4)) # antisymmetrize A(a/bc)
     X3 -= np.transpose(X3, (0, 2, 1, 3, 4)) # antisymmetrize A(bc)
     X3 -= np.transpose(X3, (0, 1, 2, 4, 3)) # antisymmetrize A(jk)
-
     return X3
-

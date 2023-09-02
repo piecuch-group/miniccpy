@@ -67,7 +67,7 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
 def run_cc_calc(fock, g, o, v, method, 
-                maxit=80, convergence=1.0e-07, shift=0.0, diis_size=6, n_start_diis=3, energy_shift=0.0, out_of_core=False, use_quasi=False):
+                maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False):
     """Run the ground-state CC calculation specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -85,7 +85,7 @@ def run_cc_calc(fock, g, o, v, method,
         diis_size = 1000 
 
     tic = time.time()
-    T, e_corr = calculation(fock, g, o, v, maxit, convergence, shift, diis_size, n_start_diis, energy_shift, out_of_core, use_quasi)
+    T, e_corr = calculation(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
@@ -129,7 +129,7 @@ def run_guess(H1, H2, o, v, nroot, method="cis"):
 
     return np.real(R0), np.real(omega0)
 
-def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, convergence=1.0e-07):
+def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, convergence=1.0e-07, max_size=20):
     """Run the excited-state EOMCC calculation specified by `method`.
     Currently, this module only supports CIS initial guesses."""
 
@@ -150,7 +150,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, c
     r0 = [0 for i in range(nroot)]
     for n in range(nroot):
         tic = time.time()
-        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n] - 1], T, omega0[state_index[n] - 1], H1, H2, o, v, maxit, convergence)
+        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n] - 1], T, omega0[state_index[n] - 1], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
