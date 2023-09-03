@@ -71,6 +71,32 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
 
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
+def run_mpn_calc(fock, g, o, v, method):
+    """Compute the Moller-Plesett energy correction specified
+    by `method`."""
+    # check if requested MBPT calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    # Run the MBPT calculation to obtain the correlation energy
+    tic = time.time()
+    e_corr = calculation(fock, g, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+    print("")
+    print("    MPn Correlation Energy: {: 20.12f}".format(e_corr))
+    print("")
+    print("    MPn calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+
+    return e_corr
+
+
 def run_cc_calc(fock, g, o, v, method, 
                 maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False):
     """Run the ground-state CC calculation specified by `method`."""

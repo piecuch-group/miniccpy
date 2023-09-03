@@ -42,12 +42,21 @@ def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4, hubbard
     beta *= eV_to_hartree
     gamma *= eV_to_hartree
     r *= ang_to_bohr
-    
-    # Compute the one-electron Huckel part
-    h1 = np.diag(alpha*np.ones(n)) + np.diag(beta*np.ones(n - 1), -1) + np.diag(beta*np.ones(n - 1), 1)
+   
+    # Form the adjacency matrix specifying the connectivity of the polyene
+    adjacency = np.diag(np.ones(n)) + np.diag(np.ones(n - 1), -1) + np.diag(np.ones(n - 1), 1)
     if cyclic:
-        h1[0, -1] = beta
-        h1[-1, 0] = beta
+        adjacency[0, -1] = beta
+        adjacency[-1, 0] = beta
+
+    # Compute the one-electron Huckel part
+    h1 = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            if i == j: # on-site one-electron energy alpha (usually set to 0)
+                h1[i, j] = alpha * adjacency[i, j]
+            else: # off-diagonal resonance integral / hopping matrix element
+                h1[i, j] = beta * adjacency[i, j]
 
     # Compute the two-electron part, assuming on-site and nearest-neighbor interactions only
     h2 = np.zeros((n, n, n, n))
@@ -57,7 +66,7 @@ def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4, hubbard
         if hubbard: continue
         # PPP models incorporate nearest-neighbor two-body interaction as well
         for j in range(i + 1, n):
-            if h1[i, j] != 0.0:
+            if adjacency[i, j] == 1.0: # only put element if they are nearest neighbors
                 h2[i, j, i, j] = mataga_nishimoto(r, gamma)
                 h2[j, i, j, i] = h2[i, j, i, j]
 
