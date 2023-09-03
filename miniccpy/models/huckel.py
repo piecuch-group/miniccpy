@@ -20,7 +20,7 @@ def mataga_nishimoto(r, gamma):
     
     return gamma_ij
 
-def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4):
+def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4, hubbard=False):
     """Computes the 1-electron and 2-electron parts of the PPP Hamiltonian
     and returns the resulting spinorbital MO integrals using eigenstates of
     the one-electron Huckel part of the PPP Hamiltonian (i.e., Z) as the 
@@ -34,6 +34,7 @@ def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4):
        beta : Huckel resonance integral (hopping parameter); typical value is -2.4 eV.
        gamma : Hubbard on-site electron-electron repulsion (U parameter); typical value is 10.84 eV.
        r : Distance between nearest-neighbor C-C bonds; typical value is 1.4 angstrom.
+       hubbard : True/False to specify whether to use Hubbard-type Hamiltonian with only on-site 2-electron interactions
     """
 
     # Model Hamiltonian parameters
@@ -52,10 +53,13 @@ def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4):
     h2 = np.zeros((n, n, n, n))
     for i in range(n):
         h2[i, i, i, i] = mataga_nishimoto(0, gamma)
+        # For Hubbard models, only include on-site twobody interaction
+        if hubbard: continue
+        # PPP models incorporate nearest-neighbor two-body interaction as well
         for j in range(i + 1, n):
             if h1[i, j] != 0.0:
                 h2[i, j, i, j] = mataga_nishimoto(r, gamma)
-                h2[j, i, j, i] = mataga_nishimoto(r, gamma)
+                h2[j, i, j, i] = h2[i, j, i, j]
 
     z, g, fock, o, v, e_hf = get_integrals_from_custom_hamiltonian(h1, h2)
 

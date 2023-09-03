@@ -12,6 +12,14 @@ def cc_energy(t1, t2, f, g, o, v):
 
     return energy
 
+def cc_energy_doubles(t2, g, o, v):
+    """ Calculate the ground-state CC correlation energy defined by
+    < 0 | exp(-T2) H_N exp(T2) | 0> = 1/4 * < ij | v | ab > < ab | t2 | ij >
+    """
+    energy = 0.25 * np.einsum('ijab,abij->', g[o, o, v, v], t2)
+
+    return energy
+
 def calc_r0(r1, r2, H1, H2, omega, o, v):
     """Calculate the zero-body component of the EOM excitation operator,
     r0 = 1/omega * < 0 | (H(CC) * R)_C | 0 >, where H(CC) = [H_N*exp(T)]_C
