@@ -100,3 +100,43 @@ def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
     print("")
     print(WHITESPACE, "Reference Energy =", hf_energy)
     print("")
+
+def print_cis_vector(r, print_threshold):
+    nu, no = r.shape
+    n = 1
+    for a in range(nu):
+        for i in range(no):
+            if abs(r[a, i]) > print_threshold:
+                print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {r[a, i]}") 
+                n += 1
+    return 
+
+def print_1p_vector(r, no, print_threshold):
+    nu, = r.shape
+    n = 1
+    for a in range(nu):
+        if abs(r[a]) > print_threshold:
+            print(f"     [{n}]  -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {r[a]}") 
+            n += 1
+    return 
+
+def print_1h_vector(r, nu, print_threshold):
+    no, = r.shape
+    n = 1
+    for i in range(no):
+        if abs(r[i]) > print_threshold:
+            print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} ->     {r[i]}") 
+            n += 1
+    return 
+
+def spatial_index(p):
+    if p % 2 == 0:
+        return int(p / 2)
+    else:
+        return int((p + 1) / 2)
+
+def spin_label(p):
+    if p % 2 == 0:
+        return "B"
+    else:
+        return "A"

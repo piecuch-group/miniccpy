@@ -98,7 +98,8 @@ def run_cc_calc(fock, g, o, v, method,
     print("")
     print("    CC Correlation Energy: {: 20.12f}".format(e_corr))
     print("")
-    print("CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
 
     return T, e_corr
 
@@ -114,31 +115,44 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot, method):
+def run_guess(H1, H2, o, v, nroot, method, print_threshold=0.025):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
     from miniccpy.initial_guess import cis_guess, eacis_guess, ipcis_guess
+    from miniccpy.printing import print_cis_vector, print_1p_vector, print_1h_vector
 
     no, nu = H1[o, v].shape
-    nroot = min(nroot, no * nu)
 
     # get the initial guess
     if method == "cis":
+        nroot = min(nroot, no * nu)
         R0, omega0 = cis_guess(H1, H2, o, v, nroot)
     elif method == "eacis":
+        nroot = min(nroot, nu)
         R0, omega0 = eacis_guess(H1, H2, o, v, nroot)
     elif method == "ipcis":
+        nroot = min(nroot, no)
         R0, omega0 = ipcis_guess(H1, H2, o, v, nroot)
     
-    print("Initial guess energies:")
+    print("    Initial Guess Vectors:")
+    print("    -----------------------")
     for i, e in enumerate(omega0):
-        print("  Guess root ", i + 1, " = ", np.real(e))
+        print("    Root ", i + 1)
+        print("    Energy = ", np.real(e))
+        print("    Largest Amplitudes:")
+        if method == "cis":
+            print_cis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
+        elif method == "eacis":
+            print_1p_vector(R0[:, i], no, print_threshold=print_threshold)
+        elif method == "ipcis":
+            print_1h_vector(R0[:, i], nu, print_threshold=print_threshold)
+        print("")
     print("")
 
     return np.real(R0), np.real(omega0)
 
 def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, convergence=1.0e-07, max_size=20):
-    """Run the excited-state EOMCC calculation specified by `method`.
-    Currently, this module only supports CIS initial guesses."""
+    """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
+    Currently, this module only supports CIS-type initial guesses."""
 
 
     # check if requested EOMCC calculation is implemented in modules
@@ -156,8 +170,9 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, c
     omega = [0 for i in range(nroot)]
     r0 = [0 for i in range(nroot)]
     for n in range(nroot):
+        print(f"    Solving for state #{state_index[n]}")
         tic = time.time()
-        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n] - 1], T, omega0[state_index[n] - 1], H1, H2, o, v, maxit, convergence, max_size=max_size)
+        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
@@ -167,7 +182,8 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, c
         print("    r0 = {: 20.12f}".format(r0[n]))
         print("    REL = {: 20.12f}".format(rel))
         print("")
-        print("EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        print("")
 
     return R, omega, r0
 

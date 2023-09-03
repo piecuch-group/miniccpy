@@ -5,7 +5,7 @@ os.environ["MKL_NUM_THREADS"] = "{}".format(os.cpu_count() - 1)
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
 basis = 'dz'
-nfrozen = 1
+nfrozen = 0
 
 # Define molecule geometry and basis set
 geom = [['H', (0, 1.515263, -1.058898)], 

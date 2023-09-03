@@ -20,7 +20,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     n1 = nunocc * nocc
     n2 = nocc**2 * nunocc**2
     ndim = n1 + n2
-    
+
+    # Pad the initial guess vector to fill the dimension of the problem
     if len(R0) < ndim:
         R = np.zeros(ndim)
         R[:len(R0)] = R0
