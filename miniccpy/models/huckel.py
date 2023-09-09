@@ -46,8 +46,8 @@ def ppp_hamiltonian(n, cyclic, alpha=0.0, beta=-2.4, gamma=10.84, r=1.4, hubbard
     # Form the adjacency matrix specifying the connectivity of the polyene
     adjacency = np.diag(np.ones(n)) + np.diag(np.ones(n - 1), -1) + np.diag(np.ones(n - 1), 1)
     if cyclic:
-        adjacency[0, -1] = beta
-        adjacency[-1, 0] = beta
+        adjacency[0, -1] = 1
+        adjacency[-1, 0] = 1
 
     # Compute the one-electron Huckel part
     h1 = np.zeros((n, n))

@@ -182,7 +182,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
             - 0.5 * np.einsum("mnji,n->mij", H2[o, o, o, o], r1, optimize=True)
     )
     I2_ooo -= np.transpose(I2_ooo, (0, 2, 1))
-    I2_ovo = (
+    I2_ovv = (
             -0.5 * np.einsum("mnef,ibfmn->ibe", H2[o, o, v, v], r3, optimize=True)
             + np.einsum("bnef,ifn->ibe", H2[v, o, v, v], r2, optimize=True)
             + 0.5 * np.einsum("nmie,nbm->ibe", H2[o, o, o, v], r2, optimize=True)
@@ -197,7 +197,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     X3 -= (6.0 / 12.0) * np.einsum("cmkj,ibm->ibcjk", H2[v, o, o, o], r2, optimize=True)
     X3 += (3.0 / 12.0) * np.einsum("cbke,iej->ibcjk", H2[v, v, o, v], r2, optimize=True)
     X3 -= (3.0 / 12.0) * np.einsum("mij,bcmk->ibcjk", I2_ooo, t2, optimize=True)
-    X3 += (6.0 / 12.0) * np.einsum("ibe,ecjk->ibcjk", I2_ovo, t2, optimize=True)
+    X3 += (6.0 / 12.0) * np.einsum("ibe,ecjk->ibcjk", I2_ovv, t2, optimize=True)
     X3 -= np.transpose(X3, (3, 1, 2, 0, 4)) + np.transpose(X3, (4, 1, 2, 3, 0)) # antisymmetrize A(i/jk)
     X3 -= np.transpose(X3, (0, 1, 2, 4, 3)) # antisymmetrize A(jk)
     X3 -= np.transpose(X3, (0, 2, 1, 3, 4)) # antisymmetrize A(bc)

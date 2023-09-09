@@ -17,7 +17,7 @@ if __name__ == "__main__":
     e_mp2 = run_mpn_calc(fock, g, o, v, method="mp2")
 
     # Run CC calculation
-    T, E_corr = run_cc_calc(fock, g, o, v, method="ccd", energy_shift=0.3)
+    T, E_corr = run_cc_calc(fock, g, o, v, method="ccsd", energy_shift=0.3)
     
 
     # Compute correlation energy per electron in eV

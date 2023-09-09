@@ -14,11 +14,5 @@ geom = [['H', (0, 1.515263, -1.058898)],
 
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
-T, E_corr = run_cc_calc(fock, g, o, v, method="ccsd")
-
-
-
-
-
-
+T, E_corr = run_cc_calc(fock, g, o, v, method="ccsdt")
 
