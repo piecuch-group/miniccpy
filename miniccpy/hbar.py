@@ -291,3 +291,84 @@ def build_hbar_ccsdt(T, f, g, o, v):
 
     return H1, H2
 
+def build_hbar_cc3(T, f, g, o, v):
+    """Calculate the one- and two-body components of the CCSD-like 
+    similarity-transformed Hamiltonian [H_N exp(T1+T2)]_C,
+    defined by 
+        H1[:, :] = < p | [H_N exp(T1+T2)]_C | q > 
+        H2[:, :, :, :] = < pq | [H_N exp(T1+T2)]_C | rs >.
+    used for CC3 computation. All nonlinear T2**2 terms are removed.
+    """
+
+    norbitals = f.shape[0]
+    nunocc, nocc = f[v, o].shape
+    n1 = nunocc * nocc
+
+    t1, t2, _ = T
+
+    H1 = np.zeros((norbitals, norbitals))
+    H2 = np.zeros((norbitals, norbitals, norbitals, norbitals))
+
+    # 1-body components
+    H1[o, v] = f[o, v] + np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
+
+    H1[o, o] = f[o, o] + (
+            np.einsum("je,ei->ji", H1[o, v], t1, optimize=True)
+            + np.einsum("jmie,em->ji", g[o, o, o, v], t1, optimize=True)
+            + 0.5 * np.einsum("jnef,efin->ji", g[o, o, v, v], t2, optimize=True)
+    )
+
+    H1[v, v] = f[v, v] + (
+            - np.einsum("mb,am->ab", H1[o, v], t1, optimize=True)
+            + np.einsum("ambe,em->ab", g[v, o, v, v], t1, optimize=True)
+            - 0.5 * np.einsum("mnbf,afmn->ab", g[o, o, v, v], t2, optimize=True)
+    )
+
+    # 2-body components
+    Q1 = -np.einsum("mnfe,an->amef", g[o, o, v, v], t1, optimize=True)
+    I_vovv = g[v, o, v, v] + 0.5 * Q1
+    H2[v, o, v, v] = I_vovv + 0.5 * Q1
+
+    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
+    I_ooov = g[o, o, o, v] + 0.5 * Q1
+    H2[o, o, o, v] = I_ooov + 0.5 * Q1
+
+    Q1 = -np.einsum("bmfe,am->abef", I_vovv, t1, optimize=True)
+    Q1 -= np.transpose(Q1, (1, 0, 2, 3))
+    H2[v, v, v, v] = g[v, v, v, v] + 0.5 * np.einsum("mnef,abmn->abef", g[o, o, v, v], t2, optimize=True) + Q1
+
+    Q1 = +np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
+    Q1 -= np.transpose(Q1, (0, 1, 3, 2))
+    H2[o, o, o, o] = g[o, o, o, o] + 0.5 * np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True) + Q1
+
+    H2[v, o, o, v] = g[v, o, o, v] + (
+            np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
+            - np.einsum("nmie,an->amie", I_ooov, t1, optimize=True)
+            + np.einsum("nmfe,afin->amie", g[o, o, v, v], t2, optimize=True)
+    )
+
+    Q1 = np.einsum("mnjf,afin->amij", H2[o, o, o, v], t2, optimize=True)
+    Q2 = g[v, o, o, v] + 0.5 * np.einsum("amef,ei->amif", g[v, o, v, v], t1, optimize=True)
+    Q2 = np.einsum("amif,fj->amij", Q2, t1, optimize=True)
+    Q1 += Q2
+    Q1 -= np.transpose(Q1, (0, 1, 3, 2))
+    H2[v, o, o, o] = g[v, o, o, o] + Q1 + (
+            np.einsum("me,aeij->amij", H1[o, v], t2, optimize=True)
+            - np.einsum("nmij,an->amij", H2[o, o, o, o], t1, optimize=True)
+            + 0.5 * np.einsum("amef,efij->amij", g[v, o, v, v], t2, optimize=True)
+    )
+
+    Q1 = np.einsum("bnef,afin->abie", H2[v, o, v, v], t2, optimize=True)
+    Q2 = g[o, v, o, v] - 0.5 * np.einsum("mnie,bn->mbie", g[o, o, o, v], t1, optimize=True)
+    Q2 = -np.einsum("mbie,am->abie", Q2, t1, optimize=True)
+    Q1 += Q2
+    Q1 -= np.transpose(Q1, (1, 0, 2, 3))
+    H2[v, v, o, v] = g[v, v, o, v] + Q1 + (
+            - np.einsum("me,abim->abie", H1[o, v], t2, optimize=True)
+            + np.einsum("abfe,fi->abie", H2[v, v, v, v], t1, optimize=True)
+            + 0.5 * np.einsum("mnie,abmn->abie", g[o, o, o, v], t2, optimize=True)
+    )
+
+    H2[o, o, v, v] = g[o, o, v, v]
+
+    return H1, H2

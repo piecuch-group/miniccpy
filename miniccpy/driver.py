@@ -176,7 +176,7 @@ def run_guess(H1, H2, o, v, nroot, method, print_threshold=0.025):
 
     return np.real(R0), np.real(omega0)
 
-def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, convergence=1.0e-07, max_size=20):
+def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
 
@@ -198,7 +198,10 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, maxit=80, c
     for n in range(nroot):
         print(f"    Solving for state #{state_index[n]}")
         tic = time.time()
-        R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size)
+        if method.lower() == "eomcc3":
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size)
+        else:
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
