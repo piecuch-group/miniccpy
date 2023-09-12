@@ -1,7 +1,10 @@
 import numpy as np
+from pathlib import Path
 from miniccpy.driver import run_scf_gamess, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
-fock, g, e_hf, o, v = run_scf_gamess("ne-avdz.FCIDUMP", 10, 18, nfrozen=0)
+TEST_DATA_DIR = str(Path(__file__).parents[1].absolute() / "data")
+
+fock, g, e_hf, o, v = run_scf_gamess(TEST_DATA_DIR + "/ne-avdz.FCIDUMP", 10, 18, nfrozen=0)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method="ccsd")
 
