@@ -176,7 +176,7 @@ def run_guess(H1, H2, o, v, nroot, method, print_threshold=0.025):
 
     return np.real(R0), np.real(omega0)
 
-def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=False):
+def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, denom_type="fock"):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
 
@@ -200,7 +200,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         tic = time.time()
         # Note: EOMCC3 methods have a difference function call due to needing fock and g matrices
         if method.lower() == "eomcc3": # Folded EOMCC3 model using excited-state DIIS algorithm
-            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size, diis_size=diis_size, do_diis=do_diis)
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis, denom_type=denom_type)
         elif method.lower() == "eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size, diis_size=diis_size, do_diis=do_diis)
         else: # All other EOMCC calculations using conventional Davidson

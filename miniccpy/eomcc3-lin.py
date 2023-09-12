@@ -30,6 +30,8 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
     if len(R0) < ndim:
         R = np.zeros(ndim)
         R[:len(R0)] = R0
+    else:
+        R = R0.copy()
 
     # Allocate the B and sigma matrices
     sigma = np.zeros((ndim, max_size))
@@ -44,6 +46,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
                      t1, t2, t3, fock, g, H1, H2, o, v)
 
     print("    ==> EOM-CC3 iterations <==")
+    print("    The initial guess energy = ", omega)
     print("")
     print("     Iter               Energy                 |dE|                 |dR|")
     curr_size = 1

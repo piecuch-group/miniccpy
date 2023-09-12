@@ -1,7 +1,7 @@
 import time
 import numpy as np
 
-def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, nrest=1, do_diis=False):
+def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True, denom_type="fock"):
     """
     Solve the nonlinear equations defined by the CC3 Jacobian eigenvalue problem
     H(omega)*R = omega*R, where R is defined as (R1, R2). This corresponds to the
@@ -16,15 +16,17 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
     from miniccpy.energy import calc_r0, calc_rel
     from miniccpy.diis import DIIS
 
-    f_eps = np.diagonal(fock)
+    eps = np.diagonal(fock)
     n = np.newaxis
     # The R3 amplitudes must be defined with MP denominator in order to be consistent with CC3
-    e_abcijk = (f_eps[v, n, n, n, n, n] + f_eps[n, v, n, n, n, n] + f_eps[n, n, v, n, n, n]
-                - f_eps[n, n, n, o, n, n] - f_eps[n, n, n, n, o, n] - f_eps[n, n, n, n, n, o])
-    # From my testing, using MP denominator works better than renormalized denominator with H1
-    e_abij = (f_eps[v, n, n, n] + f_eps[n, v, n, n] - f_eps[n, n, o, n] - f_eps[n, n, n, o])
-    e_ai = (f_eps[v, n] - f_eps[n, o])
+    e_abcijk = (eps[v, n, n, n, n, n] + eps[n, v, n, n, n, n] + eps[n, n, v, n, n, n]
+                - eps[n, n, n, o, n, n] - eps[n, n, n, n, o, n] - eps[n, n, n, n, n, o])
+    if denom_type == "hbar":
+        eps = np.diagonal(H1)
+    e_abij = (eps[v, n, n, n] + eps[n, v, n, n] - eps[n, n, o, n] - eps[n, n, n, o])
+    e_ai = (eps[v, n] - eps[n, o])
 
+    # Unpack the T vectors
     t1, t2, t3 = T
 
     nunocc, nocc = e_ai.shape
@@ -40,10 +42,11 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
 
     # Allocate the DIIS engine
     if do_diis:
-        diis_engine = DIIS(ndim, diis_size, False)
+        out_of_core = False
+        diis_engine = DIIS(ndim, diis_size, out_of_core)
 
     print("    ==> EOM-CC3 iterations <==")
-    print("     The initial guess energy = ", omega)
+    print("    The initial guess energy = ", omega)
     print("")
     print("     Iter               Energy                 |dE|                 |dR|")
     for niter in range(maxit):
@@ -61,11 +64,9 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
                    t1, t2, t3, g, H1, H2, o, v, e_abcijk)
 
         # Update the value of omega
-        #omega = np.dot(sigma.T, R) / np.dot(R.T, R)
         omega = np.dot(sigma.T, R)
 
         # Compute the eigenproblem residual H(omega)*R - omega*R
-        #residual = (sigma - omega * R)# / np.linalg.norm(R)
         residual = (sigma - omega * R)
         res_norm = np.linalg.norm(residual)
         delta_e = omega - omega_old
@@ -76,21 +77,21 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
             print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
             break
 
-        # Perturbational update step u_K = r_K/(-D_K), where D_K = energy denominator
+        # Perturbational update step u_K = r_K/(omega-D_K), where D_K = energy denominator
         u = update(residual[:n1].reshape(nunocc, nocc),
                    residual[n1:].reshape(nunocc, nunocc, nocc, nocc),
-                   0.0, e_ai, e_abij)
-        if do_diis:
-            if niter >= 3:
-                diis_engine.push((u[:n1].reshape(nunocc, nocc), u[n1:].reshape(nunocc, nunocc, nocc, nocc)),
-                                 (residual[:n1].reshape(nunocc, nocc), residual[n1:].reshape(nunocc, nunocc, nocc, nocc)),
-                                 niter)
-            if niter >= diis_size + 3:
-                u = diis_engine.extrapolate()
+                   omega, e_ai, e_abij)
 
         # Add correction vector to R
-        #R = (R + u) / np.linalg.norm(R)
         R += u
+
+        # Extrapolate DIIS
+        if do_diis:
+            diis_engine.push((R[:n1].reshape(nunocc, nocc), R[n1:].reshape(nunocc, nunocc, nocc, nocc)),
+                             (u[:n1].reshape(nunocc, nocc), u[n1:].reshape(nunocc, nunocc, nocc, nocc)),
+                              niter)
+            if niter >= diis_size:
+                R = diis_engine.extrapolate()
 
         # Print iteration
         toc = time.time()

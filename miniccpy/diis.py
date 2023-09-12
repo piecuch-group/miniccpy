@@ -52,14 +52,19 @@ class DIIS:
         self.T_list.flush()
         self.T_residuum_list.flush()
 
-    def extrapolate(self):
+    def extrapolate(self, niter=None):
 
-        B_dim = self.diis_size + 1
+        if niter is None:
+            m = self.diis_size
+        else:
+            m = min(self.diis_size, niter)
+
+        B_dim = m + 1
         B = -1.0 * np.ones((B_dim, B_dim))
 
         nhalf = int(self.ndim / 2)
-        for i in range(self.diis_size):
-            for j in range(i, self.diis_size):
+        for i in range(m):
+            for j in range(i, m):
                 B[i, j] = np.dot(
                     self.T_residuum_list[:nhalf, i], self.T_residuum_list[:nhalf, j]
                 )
@@ -76,7 +81,7 @@ class DIIS:
         # TODO: replace with scipy.linalg.lu
         coeff = solve_gauss(B, rhs)
         x_xtrap = np.zeros(self.ndim)
-        for i in range(self.diis_size):
+        for i in range(m):
             x_xtrap += coeff[i] * self.T_list[:, i]
 
         return x_xtrap

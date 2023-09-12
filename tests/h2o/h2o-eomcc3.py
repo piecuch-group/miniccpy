@@ -1,14 +1,10 @@
-# set allow numpy built with MKL to consume more threads for tensordot
-import os
-os.environ["MKL_NUM_THREADS"] = "{}".format(os.cpu_count() - 1)
-
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
 basis = '6-31g'
 nfrozen = 0
 
-re = 1
+re = 2
 
 # Define molecule geometry and basis set
 if re == 1:
@@ -29,7 +25,7 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 T, Ecorr  = run_cc_calc(fock, g, o, v, method='cc3')
 H1, H2 = get_hbar(T, fock, g, o, v, method='ccsdt')
 R, omega_guess = run_guess(H1, H2, o, v, 15, method="cis")
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eomcc3", state_index=[target_state], fock=fock, g=g, max_size=40)
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eomcc3", state_index=[target_state], fock=fock, g=g, denom_type="hbar")
 
 print("Expected VEE = ", target_vee)
 assert np.allclose(omega, target_vee, atol=1.0e-07)
