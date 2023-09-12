@@ -8,7 +8,7 @@ from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get
 basis = '6-31g'
 nfrozen = 0
 
-re = 2
+re = 1
 
 # Define molecule geometry and basis set
 if re == 1:
