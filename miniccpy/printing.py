@@ -109,7 +109,41 @@ def print_cis_vector(r, print_threshold):
             if abs(r[a, i]) > print_threshold:
                 print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {r[a, i]}") 
                 n += 1
-    return 
+    return
+
+def print_cisd_vector(r1, r2, print_threshold):
+    nu, no = r1.shape
+    # Zero out the non-unique R amplitudes related by permutational symmetry
+    for a in range(nu):
+        for b in range(a + 1, nu):
+            for i in range(no):
+                for j in range(i + 1, no):
+                    r2[b, a, j, i] = 0.0
+                    r2[a, b, j, i] = 0.0
+                    r2[b, a, i, j] = 0.0
+
+    n = 1
+    for a in range(nu):
+        for i in range(no):
+            if abs(r1[a, i]) <= print_threshold: continue
+            print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {r1[a, i]}") 
+            n += 1
+    for a in range(nu):
+        for b in range(a + 1, nu):
+            for i in range(no):
+                for j in range(i + 1, no):
+                    if abs(r2[a, b, i, j]) <= print_threshold: continue
+                    print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} {spatial_index(j + 1)}{spin_label(j + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)} {spatial_index(b + no + 1)}{spin_label(b + no + 1)}    {r2[a, b, i, j]}") 
+                    n += 1
+    # Restore permutationally redundant amplitudes
+    for a in range(nu):
+        for b in range(a + 1, nu):
+            for i in range(no):
+                for j in range(i + 1, no):
+                    r2[b, a, j, i] = r2[a, b, i, j]
+                    r2[a, b, j, i] = -1.0 * r2[a, b, i, j]
+                    r2[b, a, i, j] = -1.0 * r2[a, b, i, j]
+    return
 
 def print_1p_vector(r, no, print_threshold):
     nu, = r.shape

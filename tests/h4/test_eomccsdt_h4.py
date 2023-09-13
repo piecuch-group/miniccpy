@@ -1,4 +1,4 @@
-from miniccpy.driver import run_scf, run_cc_calc, run_eomcc_calc, get_hbar
+from miniccpy.driver import run_scf, run_cc_calc, run_eomcc_calc, get_hbar, run_guess
 
 basis = 'dz'
 nfrozen = 0 

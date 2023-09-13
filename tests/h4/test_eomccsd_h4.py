@@ -1,6 +1,6 @@
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
-basis = 'cc-pvdz'
+basis = '6-31g'
 nfrozen = 0 
 
 # Define molecule geometry and basis set

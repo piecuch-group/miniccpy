@@ -141,15 +141,18 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot, method, print_threshold=0.025, mult=-1):
+def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.025, mult=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, eacis_guess, ipcis_guess
-    from miniccpy.printing import print_cis_vector, print_1p_vector, print_1h_vector
+    from miniccpy.initial_guess import cis_guess, cisd_guess, eacis_guess, ipcis_guess
+    from miniccpy.printing import print_cis_vector, print_cisd_vector, print_1p_vector, print_1h_vector
 
     no, nu = H1[o, v].shape
 
     # get the initial guess
-    if method == "cis":
+    if method == "cisd":
+        nroot = min(nroot, no * nu)
+        R0, omega0 = cisd_guess(H1, H2, o, v, nroot, nacto, nactu, mult)
+    elif method == "cis":
         nroot = min(nroot, no * nu)
         R0, omega0 = cis_guess(H1, H2, o, v, nroot, mult)
     elif method == "eacis":
@@ -167,6 +170,8 @@ def run_guess(H1, H2, o, v, nroot, method, print_threshold=0.025, mult=-1):
         print("    Largest Amplitudes:")
         if method == "cis":
             print_cis_vector(np.real(R0[:, i].reshape(nu, no)), print_threshold=print_threshold)
+        elif method == "cisd":
+            print_cisd_vector(np.real(R0[:no*nu, i].reshape(nu, no)), np.real(R0[no*nu:, i].reshape(nu, nu, no, no)), print_threshold=print_threshold)
         elif method == "eacis":
             print_1p_vector(np.real(R0[:, i]), no, print_threshold=print_threshold)
         elif method == "ipcis":
@@ -201,6 +206,8 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         # Note: EOMCC3 methods have a difference function call due to needing fock and g matrices
         if method.lower() == "eomcc3": # Folded EOMCC3 model using excited-state DIIS algorithm
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis, denom_type=denom_type)
+        elif method.lower() == "dreomcc3": # Folded dressed EOMCC3 model using excited-state DIIS algorithm
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size, diis_size=diis_size, do_diis=do_diis)
         else: # All other EOMCC calculations using conventional Davidson

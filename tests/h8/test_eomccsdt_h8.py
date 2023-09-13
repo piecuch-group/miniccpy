@@ -21,7 +21,7 @@ T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsdt')
 H1, H2 = get_hbar(T, fock, g, o, v, method='ccsdt')
 
 R, omega_guess = run_guess(H1, H2, o, v, 10, method="cis")
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method='eomccsd', state_index=[1, 2, 3, 4, 5])
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method='eomccsdt', state_index=[1, 2, 3, 4, 5])
 
 
 
