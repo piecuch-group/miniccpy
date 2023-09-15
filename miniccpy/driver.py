@@ -161,7 +161,10 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
     elif method == "ipcis":
         nroot = min(nroot, no)
         R0, omega0 = ipcis_guess(H1, H2, o, v, nroot)
-    
+
+    # Convert initial vector to real
+    R0 = np.real(R0)
+
     print("    Initial Guess Vectors:")
     print("    -----------------------")
     for i, e in enumerate(omega0):
@@ -169,13 +172,13 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
         print("    Energy = ", np.real(e))
         print("    Largest Amplitudes:")
         if method == "cis":
-            print_cis_vector(np.real(R0[:, i].reshape(nu, no)), print_threshold=print_threshold)
+            print_cis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
         elif method == "cisd":
-            print_cisd_vector(np.real(R0[:no*nu, i].reshape(nu, no)), np.real(R0[no*nu:, i].reshape(nu, nu, no, no)), print_threshold=print_threshold)
+            print_cisd_vector(R0[:no*nu, i].reshape(nu, no), R0[no*nu:, i].reshape(nu, nu, no, no), print_threshold=print_threshold)
         elif method == "eacis":
-            print_1p_vector(np.real(R0[:, i]), no, print_threshold=print_threshold)
+            print_1p_vector(R0[:, i], no, print_threshold=print_threshold)
         elif method == "ipcis":
-            print_1h_vector(np.real(R0[:, i]), nu, print_threshold=print_threshold)
+            print_1h_vector(R0[:, i], nu, print_threshold=print_threshold)
         print("")
     print("")
 

@@ -169,7 +169,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
     """Solve the CCSDTQ system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
 
-    eps = np.kron(np.diagonal(fock)[::2], np.ones(2))
+    eps = np.diagonal(fock)
     n = np.newaxis
     e_abcdijkl = 1.0 / (- eps[v, n, n, n, n, n, n, n] - eps[n, v, n, n, n, n, n, n] - eps[n, n, v, n, n, n, n, n] - eps[n, n, n, v, n, n, n, n]
                       + eps[n, n, n, n, o, n, n, n] + eps[n, n, n, n, n, o, n, n] + eps[n, n, n, n, n, n, o, n] + eps[n, n, n, n, n, n, n, o] + energy_shift )

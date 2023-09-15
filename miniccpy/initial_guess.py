@@ -26,7 +26,7 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
     omega, C_act = np.linalg.eig(H)
     idx = np.argsort(omega)
     omega = omega[idx]
-    C_act = C_act[:, idx]
+    C_act = np.real(C_act[:, idx])
 
     # Scatter the active-space CISd vector into the full singles+doubles space
     nroot = min(nroot, C_act.shape[1])
@@ -83,7 +83,7 @@ def cis_guess(f, g, o, v, nroot, mult=-1):
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
     omega = omega[idx]
-    C = C[:, idx]
+    C = np.real(C[:, idx])
 
     # For closed shells, we can pick out singlets and triplets numerically
     if is_closed_shell and mult != -1:
@@ -115,7 +115,7 @@ def eacis_guess(f, g, o, v, nroot):
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
     omega = omega[idx]
-    C = C[:, idx]
+    C = np.real(C[:, idx])
 
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
     R_guess, _ = np.linalg.qr(C)
@@ -130,7 +130,7 @@ def ipcis_guess(f, g, o, v, nroot):
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
     omega = omega[idx]
-    C = C[:, idx]
+    C = np.real(C[:, idx])
 
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
     R_guess, _ = np.linalg.qr(C)

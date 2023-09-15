@@ -61,7 +61,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
         # Compute H*R for a given omega
         sigma = HR(omega, 
                    R[:n1].reshape(nunocc, nocc), R[n1:].reshape(nunocc, nunocc, nocc, nocc),
-                   t1, t2, t3, g, H1, H2, o, v, e_abcijk)
+                   t1, t2, t3, fock, g, H1, H2, o, v, e_abcijk)
 
         # Update the value of omega
         omega = np.dot(sigma.T, R)
@@ -123,13 +123,58 @@ def update(r1, r2, omega, e_ai, e_abij):
 
     return np.hstack([r1.flatten(), r2.flatten()])
 
-def HR(omega, r1, r2, t1, t2, t3, g, H1, H2, o, v, e_abcijk):
+def HR(omega, r1, r2, t1, t2, t3, f, g, H1, H2, o, v, e_abcijk):
     """Compute the matrix-vector product H * R, where
     H is the CCSDT similarity-transformed Hamiltonian and R is
     the EOMCCSDT linear excitation operator."""
 
+    #nu, no = t1.shape
+    #t3a = np.zeros((nu//2, nu//2, nu//2, no//2, no//2, no//2))
+    #t3b = np.zeros((nu//2, nu//2, nu//2, no//2, no//2, no//2))
+    #for a in range(nu):
+    #    for b in range(nu):
+    #        for c in range(nu):
+    #            for i in range(no):
+    #                for j in range(no):
+    #                    for k in range(no):
+    #                        if a % 2 == 0 and b % 2 == 0 and c % 2 == 0 and i % 2 == 0 and j % 2 == 0 and k % 2 == 0:
+    #                            t3a[a // 2, b // 2, c // 2, i // 2, j // 2, k // 2] = t3[a, b, c, i, j, k]
+    #for a in range(nu):
+    #    for b in range(nu):
+    #        for c in range(nu):
+    #            for i in range(no):
+    #                for j in range(no):
+    #                    for k in range(no):
+    #                        if a % 2 == 0 and b % 2 == 0 and c % 2 == 1 and i % 2 == 0 and j % 2 == 0 and k % 2 == 1:
+    #                            t3b[a // 2, b // 2, (c - 1) // 2, i // 2, j // 2, (k - 1) // 2] = t3[a, b, c, i, j, k]
+    #print("Norm of t3a = ", np.linalg.norm(t3a.flatten()))
+    #print("Norm of t3b = ", np.linalg.norm(t3b.flatten()))
+
     # Compute the new R3
-    r3 = compute_r3(r1, r2, t1, t2, omega, e_abcijk, g, o, v)
+    r3 = compute_r3(r1, r2, t1, t2, omega, e_abcijk, f, g, o, v)
+    #nu, no = t1.shape
+    #r3a = np.zeros((nu//2, nu//2, nu//2, no//2, no//2, no//2))
+    #r3b = np.zeros((nu//2, nu//2, nu//2, no//2, no//2, no//2))
+    #for a in range(nu):
+    #    for b in range(nu):
+    #        for c in range(nu):
+    #            for i in range(no):
+    #                for j in range(no):
+    #                    for k in range(no):
+    #                        if a % 2 == 0 and b % 2 == 0 and c % 2 == 0 and i % 2 == 0 and j % 2 == 0 and k % 2 == 0:
+    #                            r3a[a // 2, b // 2, c // 2, i // 2, j // 2, k // 2] = r3[a, b, c, i, j, k]
+    #for a in range(nu):
+    #    for b in range(nu):
+    #        for c in range(nu):
+    #            for i in range(no):
+    #                for j in range(no):
+    #                    for k in range(no):
+    #                        if a % 2 == 0 and b % 2 == 0 and c % 2 == 1 and i % 2 == 0 and j % 2 == 0 and k % 2 == 1:
+    #                            r3b[a // 2, b // 2, (c - 1) // 2, i // 2, j // 2, (k - 1) // 2] = r3[a, b, c, i, j, k]
+    #print("Norm of r3a = ", np.linalg.norm(r3a.flatten()))
+    #print("Norm of r3b = ", np.linalg.norm(r3b.flatten()))
+    #r3 *= 0.0
+    #t3 *= 0.0
     # update R1
     HR1 = build_HR1(r1, r2, r3, H1, H2, o, v)
     # update R2
@@ -188,7 +233,7 @@ def build_HR2(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
 
     return X2
 
-def compute_r3(r1, r2, t1, t2, omega, e_abcijk, g, o, v):
+def compute_r3(r1, r2, t1, t2, omega, e_abcijk, f, g, o, v):
     # CCS Hbar elements
     h_voov = g[v, o, o, v] + (
             -np.einsum("nmie,an->amie", g[o, o, o, v], t1, optimize=True)
@@ -213,6 +258,8 @@ def compute_r3(r1, r2, t1, t2, omega, e_abcijk, g, o, v):
             -0.5 * np.einsum("mnef,an,fi,ej->amij", g[o, o, v, v], t1, t1, t1, optimize=True)
     )
     h_vooo -= np.transpose(h_vooo, (0, 1, 3, 2))
+    # Added in for ROHF
+    h_vooo += np.einsum("me,aeij->amij", f[o, v], t2, optimize=True)
     h_vvov = 0.5 * g[v, v, o, v] + (
             -np.einsum("anie,bn->abie", g[v, o, o, v], t1, optimize=True)
             +0.5 * np.einsum("abfe,fi->abie", g[v, v, v, v], t1, optimize=True)
