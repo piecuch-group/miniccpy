@@ -10,7 +10,7 @@ T, E_corr = run_cc_calc(fock, g, o, v, method="ccsd")
 
 H1, H2 = get_hbar(T, fock, g, o, v, method="ccsd")
 
-R, omega_guess = run_guess(H1, H2, o, v, 30, method="cis", mult=1)
+R, omega_guess = run_guess(H1, H2, o, v, 30, method="cisd", mult=1, nacto=4, nactu=8)
 R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eomccsd", state_index=[x for x in range(10)], max_size=20)
 
 

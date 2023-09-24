@@ -4,7 +4,7 @@ from pyscf import ao2mo
 from miniccpy.energy import hf_energy, hf_energy_from_fock
 
 def get_integrals_from_pyscf(meanfield):
-    """Obtain the molecular orbital integrals from PySCF and convert them to
+    """Obtain the RHF/ROHF molecular orbital integrals from PySCF and convert them to
     the normal-ordered form."""
 
     molecule = meanfield.mol
@@ -20,6 +20,38 @@ def get_integrals_from_pyscf(meanfield):
     )
 
     z, g = spatial_to_spinorb(e1int, e2int)
+    g -= np.transpose(g, (0, 1, 3, 2))
+
+    occ = slice(0, molecule.nelectron)
+    fock = get_fock(z, g, occ)
+    e_hf = hf_energy(z, g, occ)
+    e_hf_test = hf_energy_from_fock(fock, g, occ)
+
+    assert( abs(e_hf - e_hf_test) < 1.0e-09 )
+
+    return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
+
+def get_integrals_from_pyscf_uhf(meanfield):
+    """Obtain the UHF molecular orbital integrals from PySCF and convert them to
+    the normal-ordered form."""
+
+    molecule = meanfield.mol
+    mo_coeff_a, mo_coeff_b = meanfield.mo_coeff
+
+    kinetic_aoints = molecule.intor_symmetric("int1e_kin")
+    nuclear_aoints = molecule.intor_symmetric("int1e_nuc")
+    hcore_aoints = kinetic_aoints + nuclear_aoints
+    eri_aoints = np.transpose(molecule.intor("int2e", aosym="s1"), (0, 2, 1, 3))
+
+    # Transform 1-body integrals
+    e1int_a = np.einsum("pi,pq,qj->ij", mo_coeff_a, hcore_aoints, mo_coeff_a)
+    e1int_b = np.einsum("pi,pq,qj->ij", mo_coeff_b, hcore_aoints, mo_coeff_b)
+    # Transform 2-body integrals
+    e2int_aa = np.einsum("pi,qj,rk,sl,pqrs->ijkl", mo_coeff_a, mo_coeff_a, mo_coeff_a, mo_coeff_a, eri_aoints, optimize=True)
+    e2int_ab = np.einsum("pi,qj,rk,sl,pqrs->ijkl", mo_coeff_a, mo_coeff_b, mo_coeff_a, mo_coeff_b, eri_aoints, optimize=True)
+    e2int_bb = np.einsum("pi,qj,rk,sl,pqrs->ijkl", mo_coeff_b, mo_coeff_b, mo_coeff_b, mo_coeff_b, eri_aoints, optimize=True)
+
+    z, g = spatial_to_spinorb_uhf(e1int_a, e1int_b, e2int_aa, e2int_ab, e2int_bb)
     g -= np.transpose(g, (0, 1, 3, 2))
 
     occ = slice(0, molecule.nelectron)
@@ -140,6 +172,43 @@ def spatial_to_spinorb(e1int, e2int):
                         g[i, j, k, l] = e2int[i0, j0, k0, l0]
     return z, g
 
+def spatial_to_spinorb_uhf(e1int_a, e1int_b, e2int_aa, e2int_ab, e2int_bb):
+    """Convert the UHF-transformed spatial integrals to spinorbital integrals."""
+
+    n = e1int_a.shape[0]
+    z = np.zeros((2*n, 2*n))
+    g = np.zeros((2*n, 2*n, 2*n, 2*n))
+
+    for i in range(2*n):
+        for j in range(2*n):
+            if i % 2 == 0 and j % 2 == 0:
+                z[i, j] = e1int_a[i // 2, j // 2]
+            elif i % 2 == 1 and j % 2 == 1:
+                z[i, j] = e1int_b[(i - 1) // 2, (j - 1) // 2]
+
+    for i in range(2*n):
+        for j in range(2*n):
+            for k in range(2*n):
+                for l in range(2*n):
+                    # aaaa
+                    if i % 2 == 0 and j % 2 == 0 and k % 2 == 0 and l % 2 == 0:
+                        g[i, j, k, l] = e2int_aa[i // 2, j // 2, k // 2, l // 2]
+                    # bbbb
+                    elif i % 2 == 1 and j % 2 == 1 and k % 2 == 1 and l % 2 == 1:
+                        g[i, j, k, l] = e2int_bb[(i - 1) // 2, (j - 1) // 2, (k - 1) // 2, (l - 1) // 2]
+                    # abab
+                    elif i % 2 == 0 and j % 2 == 1 and k % 2 == 0 and l % 2 == 1:
+                        g[i, j, k, l] = e2int_ab[i // 2, (j - 1) // 2, k // 2, (l - 1) // 2]
+                    # baba
+                    elif i % 2 == 1 and j % 2 == 0 and k % 2 == 1 and l % 2 == 0:
+                        g[i, j, k, l] = e2int_ab[(i - 1) // 2, j // 2, (k - 1) // 2, l // 2]
+                    # abba
+                    elif i % 2 == 0 and j % 2 == 1 and k % 2 == 1 and l % 2 == 0:
+                        g[i, j, k, l] = -e2int_ab[i // 2, (j - 1) // 2, (k - 1) // 2, l // 2]
+                    # baab
+                    elif i % 2 == 1 and j % 2 == 0 and k % 2 == 0 and l % 2 == 1:
+                        g[i, j, k, l] = -e2int_ab[(i - 1) // 2, j // 2, k // 2, (l - 1) // 2]
+    return z, g
 
 def get_fock(z, g, o):
     """Calculate the Fock matrix elements defined by

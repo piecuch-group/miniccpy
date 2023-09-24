@@ -1,8 +1,50 @@
 import time
 import numpy as np
-from miniccpy.energy import cc_energy, hf_energy, hf_energy_from_fock
-from miniccpy.hbar import get_ccs_intermediates, get_ccsd_intermediates
+from miniccpy.energy import cc_energy
+from miniccpy.hbar import get_ccs_intermediates
 from miniccpy.diis import DIIS
+
+# AN IMPORTANT NOTE ABOUT ROHF-BASED CC3 (AND EOMCC3) CALCULATIONS:
+# As explained in JCP 122 054110 (2005), the Fock matrix corresponding to
+# ROHF orbitals is NOT diagonal in the occupied-occupied, virtual-virtual,
+# and occupied-virtual blocks. This results in 3 complications:
+#
+# (1) Direct evaluation of T3 using MP denominator no longer holds (see explanation below).
+# (2) f(o,v) terms enter the equations. This can result in the addition of
+#     formerly neglected terms that enter as 2nd-order in wave function,
+#     assuming that F and T1 are 0th order. These terms include
+#     < ijkabc | (F_N * T2**2)_C | 0>, which is a moment-like term and easy to
+#     deal with, but also brings about the third complication, namely, terms like
+# (3) < ijkabc | (F_N*T1*T3)_C | 0 >. This term is 2nd-order in wave function and non-zero since
+#     f(o,v) is non-zero. This term cannot be dealt with easily, so ROHF-CC3 is DEFINED
+#     to neglect this term.
+#
+# Explanation of (1):
+# The fact that f(o,o) and f(v,v) are no longer diagonal comes into play
+# when we consider the direct evaluation of T3 from its
+# projection after invoking the simplifications characteristic of CC3,
+# < ijkabc | (F_N * T3)_C | 0 > + < ijkabc | (H(1)*T2)_C | 0 > = 0.
+# Evaluating the contraction with the Fock matrix produces
+# -A(i/jk) f(mi)*t(abcijk) + A(a/bc) f(ae)*t(abcijk) = -<ijkabc | (H(1)*T2)_C | 0 >,
+# and after separating out diagonal and non-diagonal components of the Fock matrix,
+# we get D_MP(abcijk)*t(abcijk) + D_ND(abcijk)(t) = -<ijkabc | (H(1)*T2)_C | 0 >,
+# where D_MP(abcijk) = e_a + e_b + e_c - e_i - e_j - e_k is the usual MP denominator and
+# D_ND(abcijk)(t) = A(i/jk) [1 - delta(mi)]*f(mi)*t(abcijk) + A(a/bc)[1 - delta(ae)]*f(ae)*t(abcijk)
+# denotes the part of <ijkabc|(F_N*T3)_C|0> resulting from non-diagonal portions of the
+# Fock matrix in the occupied-occupied and virtual-virtual blocks.
+# For RHF orbitals, f(mi) = e_i delta(mi) and f(ae) = e_a delta(ae), so the
+# non-diagonal contributions from the Fock matrix are 0, and we recover the usual
+# CC3-type expression for T3, namely,
+# t3(abcijk) = -<ijkabc|(H(1)*T2)_C|0> / D_MP(abcijk).
+# For ROHF orbitals, however, the D_ND terms are NON-ZERO. This means that the above
+# approximation for T3 is not strictly correct, and we can see this discrepancy between the results
+# produced with "cc3-full" and "cc3". As far as I can tell, there is no standard way to resolve
+# this issue. You cannot incorporate the non-diagonal terms because that would require storing
+# T3, thus destroying the point of the method. In JCP 122 054110 (2005) (which should correspond
+# to the implementation in Psi4), they semi-canonicalize the ROHF orbitals before entering CC3, so
+# that the Fock matrix is made diagonal in the occ-occ and virt-virt blocks. Thus, they can save
+# the structure of the ROHF-CC3 method (note that, they also mention that this type of trick is typically
+# used in ROHF-CCSD(T) calculations as well) at the expense of using a UHF-CC3-type implementation.
 
 def singles_residual(t1, t2, t3, f, g, o, v, I_vooo, I_vvov, e_abc):
     """Compute the projection of the CCSDT Hamiltonian on singles

@@ -154,6 +154,16 @@ def print_1p_vector(r, no, print_threshold):
             n += 1
     return 
 
+def print_2p_vector(r, no, print_threshold):
+    nu, _ = r.shape
+    n = 1
+    for a in range(nu):
+        for b in range(a + 1, nu):
+            if abs(r[a, b]) > print_threshold:
+                print(f"     [{n}]  ->  {spatial_index(a + no + 1)}{spin_label(a + no + 1)} {spatial_index(b + no + 1)}{spin_label(b + no + 1)}    {r[a, b]}") 
+                n += 1
+    return 
+
 def print_1h_vector(r, nu, print_threshold):
     no, = r.shape
     n = 1

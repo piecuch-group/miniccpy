@@ -28,37 +28,34 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
     omega = omega[idx]
     C_act = np.real(C_act[:, idx])
 
-    # Scatter the active-space CISd vector into the full singles+doubles space
     nroot = min(nroot, C_act.shape[1])
     no, nu = f[o, v].shape
     ndim = no*nu + no**2*nu**2
     C = np.zeros((ndim, nroot))
-    for i in range(nroot):
-        C[:, i] = cisd_scatter(C_act[:, i], nacto, nactu, no, nu)
-
-    # For closed shells, we can pick out singlets and triplets numerically
-    if is_closed_shell and mult != -1:
-        omega_guess = np.zeros(nroot)
-        C_spin = np.zeros((C.shape[0], nroot))
-        n_spin = 0
-        for n in range(C.shape[1]):
-            if spin_function(C[:no*nu, n], mult, no, nu) <= 1.0e-06:
-                C_spin[:, n_spin] = C[:, n]
-                omega_guess[n_spin] = omega[n]
-                n_spin += 1
-            if n_spin >= nroot:
-                break
-        # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
-        R_guess, _ = np.linalg.qr(C_spin[:, :min(n_spin, nroot)])
-        omega_guess = omega_guess[:min(n_spin, nroot)]
-    else:
+    # Scatter the active-space CISd vector into the full singles+doubles space
+    if not is_closed_shell or mult != -1:
+        for i in range(nroot):
+            C[:, i] = cisd_scatter(C_act[:, i], nacto, nactu, no, nu)
         # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
         R_guess, _ = np.linalg.qr(C[:, :nroot])
         omega_guess = omega[:nroot]
 
-    # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
-    R_guess, _ = np.linalg.qr(C[:, :nroot])
-    omega_guess = omega[:nroot]
+    # For closed shells, we can pick out singlets and triplets numerically
+    else:
+        omega_guess = np.zeros(nroot)
+        C_spin = np.zeros((C.shape[0], nroot))
+        n_spin = 0
+        for n in range(C.shape[1]):
+            if spin_function(C_act[:no*nu, n], mult, no, nu) <= 1.0e-06:
+                C_spin[:, n_spin] = cisd_scatter(C_act[:, n], nacto, nactu, no, nu)
+                omega_guess[n_spin] = omega[n]
+                n_spin += 1
+            if n_spin >= nroot:
+                break
+
+        # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+        R_guess, _ = np.linalg.qr(C_spin[:, :min(n_spin, nroot)])
+        omega_guess = omega_guess[:min(n_spin, nroot)]
 
     return R_guess, omega_guess
 
@@ -106,6 +103,28 @@ def cis_guess(f, g, o, v, nroot, mult=-1):
         omega_guess = omega[:nroot]
 
     return R_guess, omega_guess
+
+def deacis_guess(f, g, o, v, nroot, nactu):
+    """Obtain the lowest `nroot` roots of the 2p Hamiltonian
+    to serve as the initial guesses for the DEA-EOMCC calculations."""
+
+    H = build_2p_hamiltonian(f, g, o, v, nactu)
+    omega, C = np.linalg.eig(H)
+    idx = np.argsort(omega)
+    omega = omega[idx]
+    C = np.real(C[:, idx])
+
+    no, nu = f[o, v].shape
+    n1 = nu**2
+
+    R_guess = np.zeros((n1, nroot))
+    for i in range(nroot):
+        R_guess[:, i] = deacis_scatter(C[:, i], nactu, no, nu)
+
+    # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+    R_guess, _ = np.linalg.qr(R_guess)
+
+    return R_guess, omega[:nroot]
 
 def eacis_guess(f, g, o, v, nroot):
     """Obtain the lowest `nroot` roots of the 1p Hamiltonian
@@ -164,130 +183,201 @@ def cisd_scatter(V_in, nacto, nactu, no, nu):
                         offset += 1
     return np.hstack((V1_out.flatten(), V2_out.flatten()))
 
-def build_cisd_hamiltonian(f, g, o, v, nacto, nactu):
-    # Get orbital dimensions
-    no, nu = f[o, v].shape
+def deacis_scatter(V_in, nactu, no, nu):
+
     # set active space parameters
-    nacto = min(nacto, no)
     nactu = min(nactu, nu)
+    # allocate full-length output vector
+    V1_out = np.zeros((nu, nu))
+    # Start filling in the array
+    offset = 0
+    for a in range(nu):
+        for b in range(a + 1, nu):
+            if a < nactu and b < nactu:
+                V1_out[a, b] = V_in[offset]
+                V1_out[b, a] = -V_in[offset]
+                offset += 1
+    return V1_out.flatten()
+
+
+def build_cisd_hamiltonian(fock, g, o, v, nacto, nactu):
+
+    no, nu = fock[o, v].shape
+
     # set dimensions of CISD problem
     n1 = no * nu
     n2 = int(nacto * (nacto - 1) / 2 * nactu * (nactu - 1) / 2)
     # total dimension
     ndim = n1 + n2
-    
-    # < ia | H | jb >
+    # get index addressing arrays
+    idx_1, idx_2 = get_index_arrays(no, nu, nacto, nactu)
+
+    ###########
+    # SINGLES #
+    ###########
     s_H_s = np.zeros((n1, n1))
-    ct1 = 0
-    for a in range(nu):
-        for i in range(no):
-            ct2 = 0
-            for b in range(nu):
-                for j in range(no):
-                    s_H_s[ct1, ct2] = (
-                          f[v, v][a, b] * (i == j)
-                        - f[o, o][j, i] * (a == b)
-                        + g[v, o, o, v][a, j, i, b]
-                    )
-                    ct2 += 1
-            ct1 += 1
-    # < ia | H | jkbc >
     s_H_d = np.zeros((n1, n2))
-    idet = 0
     for a in range(nu):
         for i in range(no):
-            jdet = 0
-            for b in range(nactu):
-                for c in range(b + 1, nactu):
-                    for j in range(no - nacto, no):
-                        for k in range(j + 1, no):
-                            hmatel = (
-                               (i == k) * (a == c) * f[o, v][j, b]
-                              +(i == j) * (a == b) * f[o, v][k, c]
-                              -(i == j) * (a == c) * f[o, v][k, b]
-                              -(i == k) * (a == b) * f[o, v][j, c]
-                              -(a == b) * g[o, o, o, v][j, k, i, c]
-                              +(a == c) * g[o, o, o, v][j, k, i, b]
-                              +(i == j) * g[v, o, v, v][a, k, b, c]
-                              -(i == k) * g[v, o, v, v][a, j, b, c]
-                            )
-                            s_H_d[idet, jdet] = hmatel
-                            jdet += 1
-            idet += 1
-    # < ijab | H | kc >
+            idet = idx_1[a, i]
+            if idet == 0: continue
+            I = abs(idet) - 1
+            # -h1a(mi) * r1a(am)
+            for m in range(no):
+                jdet = idx_1[a, m]
+                if jdet == 0: continue
+                J = abs(jdet) - 1
+                s_H_s[I, J] -= fock[o, o][m, i]
+            # h1a(ae) * r1a(ei)
+            for e in range(nu):
+                jdet = idx_1[e, i]
+                if jdet == 0: continue
+                J = abs(jdet) - 1
+                s_H_s[I, J] += fock[v, v][a, e]
+            # h2a(amie) * r1a(em)
+            for e in range(nu):
+                for m in range(no):
+                    jdet = idx_1[e, m]
+                    if jdet == 0: continue
+                    J = abs(jdet) - 1
+                    s_H_s[I, J] += g[v, o, o, v][a, m, i, e]
+            # h1a(me) * r2a(aeim)
+            for e in range(nactu):
+                for m in range(no - nacto, no):
+                    jdet = idx_2[a, e, i, m]
+                    if jdet != 0:
+                        J = abs(jdet) - 1
+                        phase = np.sign(jdet)
+                        s_H_d[I, J] += fock[o, v][m, e] * phase
+            # -1/2 h2a(mnif) * r2a(afmn)
+            for m in range(no - nacto, no):
+                for n in range(m + 1, no):
+                    for f in range(nactu):
+                        jdet = idx_2[a, f, m, n]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            s_H_d[I, J] -= g[o, o, o, v][m, n, i, f] * phase
+            # 1/2 h2a(anef) * r2a(efin)
+            for e in range(nactu):
+                for f in range(e + 1, nactu):
+                    for n in range(no - nacto, no):
+                        jdet = idx_2[e, f, i, n]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            s_H_d[I, J] += g[v, o, v, v][a, n, e, f] * phase
+    ###########
+    # DOUBLES #
+    ###########
     d_H_s = np.zeros((n2, n1))
-    idet = 0
-    for a in range(nactu):
-        for b in range(a + 1, nactu):
-            for i in range(no - nacto, no):
-                for j in range(i + 1, no):
-                    jdet = 0
-                    for c in range(nu):
-                        for k in range(no):
-                            hmatel = (
-                                 (j == k) * g[v, v, o, v][a, b, i, c]
-                                +(i == k) * g[v, v, o, v][b, a, j, c]
-                                -(b == c) * g[v, o, o, o][a, k, i, j]
-                                -(a == c) * g[v, o, o, o][b, k, j, i]
-                            )
-                            d_H_s[idet, jdet] = hmatel
-                            jdet += 1
-                    idet += 1
-    # < ijab | H | klcd >
     d_H_d = np.zeros((n2, n2))
-    idet = 0
     for a in range(nactu):
         for b in range(a + 1, nactu):
             for i in range(no - nacto, no):
                 for j in range(i + 1, no):
-                    jdet = 0
-                    for c in range(nactu):
-                        for d in range(c + 1, nactu):
-                            for k in range(no - nacto, no):
-                                for l in range(k + 1, no):
-                                    hmatel = (
-                                        (a == c) * (b ==d) *
-                                        (
-                                                -(j == l) * f[o, o][k, i]
-                                                +(i == l) * f[o, o][k, j]
-                                                +(j == k) * f[o, o][l, i]
-                                                -(i == k) * f[o, o][l, j]
-                                        )
-                                        + (j == l) * (i == k) *
-                                        (
-                                                + (b == d) * f[v, v][a, c]
-                                                - (b == c) * f[v, v][a, d]
-                                                + (a == c) * f[v, v][b, d]
-                                                - (a == d) * f[v, v][b, c]
-                                        )
-                                        + (i == k) * (a == c) * g[v, o, o, v][b, l, j, d]
-                                        - (i == k) * (a == d) * g[v, o, o, v][b, l, j, c]
-                                        - (i == k) * (b == c) * g[v, o, o, v][a, l, j, d]
-                                        + (i == k) * (b == d) * g[v, o, o, v][a, l, j, c]
-                                        - (i == l) * (a == c) * g[v, o, o, v][b, k, j, d]
-                                        + (i == l) * (a == d) * g[v, o, o, v][b, k, j, c]
-                                        + (i == l) * (b == c) * g[v, o, o, v][a, k, j, d]
-                                        - (i == l) * (b == d) * g[v, o, o, v][a, k, j, c]
-                                        - (j == k) * (a == c) * g[v, o, o, v][b, l, i, d]
-                                        + (j == k) * (a == d) * g[v, o, o, v][b, l, i, c]
-                                        + (j == k) * (b == c) * g[v, o, o, v][a, l, i, d]
-                                        - (j == k) * (b == d) * g[v, o, o, v][a, l, i, c]
-                                        + (j == l) * (a == c) * g[v, o, o, v][b, k, i, d]
-                                        - (j == l) * (a == d) * g[v, o, o, v][b, k, i, c]
-                                        - (j == l) * (b == c) * g[v, o, o, v][a, k, i, d]
-                                        + (j == l) * (b == d) * g[v, o, o, v][a, k, i, c]
-                                        + (b == d) * (a == c) * g[o, o, o, o][k, l, i, j]
-                                        + (i == k) * (j == l) * g[v, v, v, v][a, b, c, d]
-                                    )
-                                    d_H_d[idet, jdet] = hmatel
-                                    jdet += 1
-                    idet += 1
+                    idet = idx_2[a, b, i, j]
+                    if idet == 0: continue
+                    I = abs(idet) - 1
+                    # -A(ab) h2a(amij) * r1a(bm)
+                    for m in range(no):
+                        # (1)
+                        jdet = idx_1[b, m]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            d_H_s[I, J] -= g[v, o, o, o][a, m, i, j]
+                        # (ab)
+                        jdet = idx_1[a, m]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            d_H_s[I, J] += g[v, o, o, o][b, m, i, j]
+                    # A(ij) h2a(abie) * r1a(ej)
+                    for e in range(nu):
+                        # (1)
+                        jdet = idx_1[e, i]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            d_H_s[I, J] += g[v, v, o, v][b, a, j, e]
+                        # (ij)
+                        jdet = idx_1[e, j]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            d_H_s[I, J] -= g[v, v, o, v][b, a, i, e]
+                    # -A(ij) h1a(mi) * r2a(abmj)
+                    for m in range(no - nacto, no):
+                        # (1)
+                        jdet = idx_2[a, b, m, j]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            d_H_d[I, J] -= fock[o, o][m, i] * phase
+                        # (ij)
+                        jdet = idx_2[a, b, m, i]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            d_H_d[I, J] += fock[o, o][m, j] * phase
+                    # A(ab) h1a(ae) * r2a(ebij)
+                    for e in range(nactu):
+                        # (1)
+                        jdet = idx_2[e, b, i, j]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            d_H_d[I, J] += fock[v, v][a, e] * phase
+                        # (ab)
+                        jdet = idx_2[e, a, i, j]
+                        if jdet != 0:
+                            J = abs(jdet) - 1
+                            phase = np.sign(jdet)
+                            d_H_d[I, J] -= fock[v, v][b, e] * phase
+                    # 1/2 h2a(mnij) * r2a(abmn)
+                    for m in range(no - nacto, no):
+                        for n in range(m + 1, no):
+                            jdet = idx_2[a, b, m, n]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] += g[o, o, o, o][m, n, i, j] * phase
+                    # 1/2 h2a(abef) * r2a(efij)
+                    for e in range(nactu):
+                        for f in range(e + 1, nactu):
+                            jdet = idx_2[e, f, i, j]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] += g[v, v, v, v][a, b, e, f] * phase
+                    # A(ij)A(ab) h2a(amie) * r2a(ebmj)
+                    for e in range(nactu):
+                        for m in range(no - nacto, no):
+                            # (1)
+                            jdet = idx_2[e, b, m, j]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] += g[v, o, o, v][a, m, i, e] * phase
+                            # (ij)
+                            jdet = idx_2[e, b, m, i]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] -= g[v, o, o, v][a, m, j, e] * phase
+                            # (ab)
+                            jdet = idx_2[e, a, m, j]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] -= g[v, o, o, v][b, m, i, e] * phase
+                            # (ij)(ab)
+                            jdet = idx_2[e, a, m, i]
+                            if jdet != 0:
+                                J = abs(jdet) - 1
+                                phase = np.sign(jdet)
+                                d_H_d[I, J] += g[v, o, o, v][b, m, j, e] * phase
+
     # Assemble and return full matrix
-    return np.concatenate(
-        (np.concatenate((s_H_s, s_H_d), axis=1),
-         np.concatenate((d_H_s, d_H_d), axis=1),
-         ), axis=0
-    )
+    return np.concatenate((np.concatenate((s_H_s, s_H_d), axis=1),
+                           np.concatenate((d_H_s, d_H_d), axis=1),), axis=0)
 
 def build_cis_hamiltonian(f, g, o, v):
     """ Construct the CIS Hamiltonian with matrix elements
@@ -312,6 +402,32 @@ def build_cis_hamiltonian(f, g, o, v):
                           f[v, v][a, b] * (i == j)
                         - f[o, o][j, i] * (a == b)
                         + g[v, o, o, v][a, j, i, b]
+                    )
+                    ct2 += 1
+            ct1 += 1
+
+    return H
+
+def build_2p_hamiltonian(f, g, o, v, nactu):
+    # get orbital parameters
+    no, nu = f[o, v].shape
+    # set active space parameters
+    nactu = min(nactu, nu)
+    # allocate active-space 2p hamiltonian
+    ndim = int(nactu * (nactu - 1) / 2)
+    H = np.zeros((ndim, ndim))
+    ct1 = 0
+    for a in range(nactu):
+        for b in range(a + 1, nactu):
+            ct2 = 0
+            for c in range(nactu):
+                for d in range(c + 1, nactu):
+                    H[ct1, ct2] = (
+                        +(b == d) * f[v, v][a, c]
+                        -(a == d) * f[v, v][b, c]
+                        -(b == c) * f[v, v][a, d]
+                        +(a == c) * f[v, v][b, d]
+                        + g[v, v, v, v][a, b, c, d]
                     )
                     ct2 += 1
             ct1 += 1
@@ -376,3 +492,28 @@ def spin_function(C1, mult, no, nu):
     elif mult == 3:
         error = np.linalg.norm(c1_a + c1_b)
     return error
+
+
+def get_index_arrays(no, nu, nacto, nactu):
+
+    nacto = min(no, nacto)
+    nactu = min(nu, nactu)
+
+    idx_1 = np.zeros((nu, no), dtype=np.int32)
+    kout = 1
+    for a in range(nu):
+        for i in range(no):
+            idx_1[a, i] = kout
+            kout += 1
+    idx_2 = np.zeros((nu, nu, no, no), dtype=np.int32)
+    kout = 1
+    for a in range(nactu):
+        for b in range(a + 1, nactu):
+            for i in range(no - nacto, no):
+                for j in range(i + 1, no):
+                    idx_2[a, b, i, j] = kout
+                    idx_2[b, a, i, j] = -kout
+                    idx_2[a, b, j, i] = -kout
+                    idx_2[b, a, j, i] = kout
+                    kout += 1
+    return idx_1, idx_2
