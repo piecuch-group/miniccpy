@@ -7,6 +7,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     non-Hermitian Davidson algorithm for a specific root defined by an initial
     guess vector.
     """
+    from miniccpy.energy import calc_rel_dea
+
     eps = np.diagonal(H1)
     n = np.newaxis
     e_abcdkl = (eps[v, n, n, n, n, n] + eps[n, v, n, n, n, n] + eps[n, n, v, n, n, n] + eps[n, n, n, v, n, n] - eps[n, n, n, n, o, n] - eps[n, n, n, n, n, o])
@@ -106,21 +108,23 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     else:
         print("DEA-EOMCC(4p-2h) iterations did not converge")
 
-    # Set the r0 and rel trivially to 0
+    # r0 for a root in DEA is 0 by definition
     r0 = 0.0
-    rel = 0.0
+    # Compute relative excitation level diagnostic
+    rel = calc_rel_dea(R[:n1].reshape(nunocc, nunocc),
+                       R[n1:n1+n2].reshape(nunocc, nunocc, nunocc, nocc))
     return R, omega, r0, rel
 
 def update(r1, r2, r3, omega, e_ab, e_abck, e_abcdkl):
     """Perform the diagonally preconditioned residual (DPR) update
     to get the next correction vector."""
 
-    #for a in range(r1.shape[0]):
-    #    for b in range(r1.shape[1]):
-    #        denom = omega - e_ab[a, b]
-    #        if denom == 0: continue
-    #        r1[a, b] /= denom
-    r1 /= (omega - e_ab)
+    for a in range(r1.shape[0]):
+        for b in range(r1.shape[1]):
+            denom = omega - e_ab[a, b]
+            if denom == 0: continue
+            r1[a, b] /= denom
+    #r1 /= (omega - e_ab)
     r2 /= (omega - e_abck)
     r3 /= (omega - e_abcdkl)
 
@@ -186,72 +190,72 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
             0.5 * np.einsum("mnef,ef->mn", H2[o, o, v, v], r1, optimize=True)
     )
     # I(abce)
-    #I_vvvv = (
-        #  (3.0 / 6.0) * np.einsum("bmfe,abfn->abce", H2[v, o, v, v], r2, optimize=True)
-        #+ (3.0 / 6.0) * np.einsum("acef,be->abce", H2[v, v, v, v], r1, optimize=True)
-    #)
+    I_vvvv = (
+          (3.0 / 6.0) * np.einsum("cmfe,abem->abcf", H2[v, o, v, v], r2, optimize=True)
+        + (3.0 / 6.0) * np.einsum("acef,eb->abcf", H2[v, v, v, v], r1, optimize=True)
+        - (1.0 / 12.0) * np.einsum("mnef,abcfmn->abce", H2[o, o, v, v], r3, optimize=True)
+    )
     # antisymmetrize A(abc)
-    #I_vvvv -= np.transpose(I_vvvv, (0, 2, 1, 3)) # A(bc)
-    #I_vvvv -= np.transpose(I_vvvv, (1, 0, 2, 3)) + np.transpose(I_vvvv, (2, 1, 0, 3)) # A(a/bc)
-    ## I(abmk)
-    #I_vvoo = (
-    #    (1.0 / 2.0) * np.einsum("mnkf,abfn->abmk", H2[o, o, o, v], r2, optimize=True)
-    #    - np.einsum("amke,be->abmk", H2[v, o, o, v], r1, optimize=True)
-    #    + 0.5 * np.einsum("amfe,fbek->abmk", H2[v, o, v, v], r2, optimize=True)
-    #    #+ (1.0 / 4.0) * np.einsum("mn,abmk->abnk", I_oo, t2, optimize=True)
-    #)
+    I_vvvv -= np.transpose(I_vvvv, (0, 2, 1, 3)) # A(bc)
+    I_vvvv -= np.transpose(I_vvvv, (1, 0, 2, 3)) + np.transpose(I_vvvv, (2, 1, 0, 3)) # A(a/bc)
+    # I(abmk)
+    I_vvoo = (
+        (1.0 / 2.0) * np.einsum("nmke,abem->abnk", H2[o, o, o, v], r2, optimize=True)
+        - np.einsum("bmje,ec->bcmj", H2[v, o, o, v], r1, optimize=True)
+        + 0.5 * np.einsum("amfe,fbek->abmk", H2[v, o, v, v], r2, optimize=True)
+        + (1.0 / 4.0) * np.einsum("mnef,abefkn->abmk", H2[o, o, v, v], r3, optimize=True)
+        - (1.0 / 4.0) * np.einsum("mn,bcnk->bcmk", I_oo, t2, optimize=True) # an extra factor of 1/2 applied here compensate. Net weight should be (6.0 / 48.0) in final contraction.
+    )
     # antisymmetrize A(ab)
-    #I_vvoo -= np.transpose(I_vvoo, (1, 0, 2, 3))
-
+    I_vvoo -= np.transpose(I_vvoo, (1, 0, 2, 3))
+    ### Explicit usage of 3-body Hbar ###
     # I(abcefk)
-    I_vvvvvo = (
-        # A(a/bc) -h(anef) t2(bcnk)
-        -np.einsum("anef,bcnk->abcefk", H2[v, o, v, v], t2, optimize=True)
-    )
-    I_vvvvvo -= np.transpose(I_vvvvvo, (1, 0, 2, 3, 4, 5)) + np.transpose(I_vvvvvo, (2, 1, 0, 3, 4, 5))
+    #I_vvvvvo = (
+    #    # A(a/bc) -h(anef) t2(bcnk)
+    #    -np.einsum("anef,bcnk->abcefk", H2[v, o, v, v], t2, optimize=True)
+    #)
+    #I_vvvvvo -= np.transpose(I_vvvvvo, (1, 0, 2, 3, 4, 5)) + np.transpose(I_vvvvvo, (2, 1, 0, 3, 4, 5))
     # I(abmije)
-    I_vvooov = (
-        # A(ab) h(bmfe) t2(afij)
-        (1.0 / 2.0) * np.einsum("bmfe,afij->abmije", H2[v, o, v, v], t2, optimize=True)
-        # -A(ij) h(nmje) t2(abin)
-        - (1.0 / 2.0) * np.einsum("nmje,abin->abmije", H2[o, o, o, v], t2, optimize=True)
-    )
-    I_vvooov -= np.transpose(I_vvooov, (1, 0, 2, 3, 4, 5))
-    I_vvooov -= np.transpose(I_vvooov, (0, 1, 2, 4, 3, 5))
+    #I_vvooov = (
+    #    # A(ab) h(bmfe) t2(afij)
+    #    (1.0 / 2.0) * np.einsum("bmfe,afij->abmije", H2[v, o, v, v], t2, optimize=True)
+    #    # -A(ij) h(nmje) t2(abin)
+    #    - (1.0 / 2.0) * np.einsum("nmje,abin->abmije", H2[o, o, o, v], t2, optimize=True)
+    #)
+    #I_vvooov -= np.transpose(I_vvooov, (1, 0, 2, 3, 4, 5))
+    #I_vvooov -= np.transpose(I_vvooov, (0, 1, 2, 4, 3, 5))
     # I(abcije)
-    I_vvvoov = (
-        # -A(ij)A(c/ab) h(bmje) t2(acim)
-        - (6.0 / 12.0) * np.einsum("bmje,acim->abcije", H2[v, o, o, v], t2, optimize=True)
-        # A(a/bc) h(bcfe) t2(afij)
-        + (3.0 / 12.0) * np.einsum("bcfe,afij->abcije", H2[v, v, v, v], t2, optimize=True)
-    )
-    I_vvvoov -= np.transpose(I_vvvoov, (0, 1, 2, 4, 3, 5)) # A(ij)
-    I_vvvoov -= np.transpose(I_vvvoov, (0, 2, 1, 3, 4, 5)) # A(bc)
-    I_vvvoov -= np.transpose(I_vvvoov, (1, 0, 2, 3, 4, 5)) + np.transpose(I_vvvoov, (2, 1, 0, 3, 4, 5)) # A(a/bc)
+    #I_vvvoov = (
+    #    # -A(ij)A(c/ab) h(bmje) t2(acim)
+    #    - (6.0 / 12.0) * np.einsum("bmje,acim->abcije", H2[v, o, o, v], t2, optimize=True)
+    #    # A(a/bc) h(bcfe) t2(afij)
+    #    + (3.0 / 12.0) * np.einsum("bcfe,afij->abcije", H2[v, v, v, v], t2, optimize=True)
+    #)
+    #I_vvvoov -= np.transpose(I_vvvoov, (0, 1, 2, 4, 3, 5)) # A(ij)
+    #I_vvvoov -= np.transpose(I_vvvoov, (0, 2, 1, 3, 4, 5)) # A(bc)
+    #I_vvvoov -= np.transpose(I_vvvoov, (1, 0, 2, 3, 4, 5)) + np.transpose(I_vvvoov, (2, 1, 0, 3, 4, 5)) # A(a/bc)
     # I(amnijf)
-    I_voooov = (
-            # h(mnef) t2(aeij)
-            np.einsum("mnef,aeij->amnijf", H2[o, o, v, v], t2, optimize=True)
-    )
+    #I_voooov = (
+    #        # h(mnef) t2(aeij)
+    #        np.einsum("mnef,aeij->amnijf", H2[o, o, v, v], t2, optimize=True)
+    #)
     # I(abnief)
-    I_vvoovv = (
-            # h(mnef) t2(abim)
-            -np.einsum("mnef,abim->abnief", H2[o, o, v, v], t2, optimize=True)
-    )
-
+    #I_vvoovv = (
+    #        # h(mnef) t2(abim)
+    #        -np.einsum("mnef,abim->abnief", H2[o, o, v, v], t2, optimize=True)
+    #)
+    ####
     X3 = -(4.0 / 48.0) * np.einsum("dmlk,abcm->abcdkl", H2[v, o, o, o], r2, optimize=True)
     X3 += (12.0 / 48.0) * np.einsum("dcle,abek->abcdkl", H2[v, v, o, v], r2, optimize=True)
-    # problem is here most likely
-    #X3 += (4.0 / 48.0) * np.einsum("abce,edkl->abcdkl", I_vvvv, t2, optimize=True)
-    #X3 -= (12.0 / 48.0) * np.einsum("abmk,cdml->abcdkl", I_vvoo, t2, optimize=True)
-    #
+    X3 += (4.0 / 48.0) * np.einsum("abce,edkl->abcdkl", I_vvvv, t2, optimize=True)
+    X3 -= (12.0 / 48.0) * np.einsum("abmk,cdml->abcdkl", I_vvoo, t2, optimize=True)
     ### Explicit usage of 3-body Hbar ###
-    X3 += (6.0 / 48.0) * np.einsum("cdmkle,abem->abcdkl", I_vvooov, r2, optimize=True)
-    X3 += (8.0 / 96.0) * np.einsum("abcefk,efdl->abcdkl", I_vvvvvo, r2, optimize=True)
-    X3 += (4.0 / 48.0) * np.einsum("cdbkle,ae->abcdkl", I_vvvoov, r1, optimize=True)
-    X3 += (6.0 / 48.0) * np.einsum("mn,adml,bcnk->abcdkl", I_oo, t2, t2, optimize=True)
-    X3 -= (4.0 / 96.0) * np.einsum("dmnlkf,abcfmn->abcdkl", I_voooov, r3, optimize=True)
-    X3 += (12.0 / 96.0) * np.einsum("dcnlef,abefkn->abcdkl", I_vvoovv, r3, optimize=True)
+    #X3 += (6.0 / 48.0) * np.einsum("cdmkle,abem->abcdkl", I_vvooov, r2, optimize=True)
+    #X3 += (8.0 / 96.0) * np.einsum("abcefk,efdl->abcdkl", I_vvvvvo, r2, optimize=True)
+    #X3 += (4.0 / 48.0) * np.einsum("cdbkle,ae->abcdkl", I_vvvoov, r1, optimize=True)
+    #X3 += (6.0 / 48.0) * np.einsum("mn,adml,bcnk->abcdkl", I_oo, t2, t2, optimize=True)
+    #X3 -= (4.0 / 96.0) * np.einsum("dmnlkf,abcfmn->abcdkl", I_voooov, r3, optimize=True)
+    #X3 += (12.0 / 96.0) * np.einsum("dcnlef,abefkn->abcdkl", I_vvoovv, r3, optimize=True)
     ####
     X3 -= (2.0 / 48.0) * np.einsum("ml,abcdkm->abcdkl", H1[o, o], r3, optimize=True)
     X3 += (4.0 / 48.0) * np.einsum("ae,ebcdkl->abcdkl", H1[v, v], r3, optimize=True)

@@ -46,6 +46,13 @@ def calc_rel_ea(r1, r2):
     rel = (rel_1 + 2.0 * rel_2)/(rel_1 + rel_2)
     return rel
 
+def calc_rel_dea(r1, r2):
+    """Calculate the relative excitation level (REL) for DEA-EOMCC calculations"""
+    rel_1 = 0.5 * np.einsum("ab,ab->", r1, r1, optimize=True)
+    rel_2 = (1.0 / 6.0) * np.einsum("abck,abck->", r2, r2, optimize=True)
+    rel = (rel_1 + 2.0 * rel_2)/(rel_1 + rel_2)
+    return rel
+
 def calc_rel_ip(r1, r2):
     """Calculate the relative excitation level (REL) for IP-EOMCC calculations"""
     rel_1 = -np.einsum("i,i->", r1, r1, optimize=True)

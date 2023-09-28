@@ -7,6 +7,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     non-Hermitian Davidson algorithm for a specific root defined by an initial
     guess vector.
     """
+    from miniccpy.energy import calc_rel_dea
+
     eps = np.diagonal(H1)
     n = np.newaxis
     e_abck = (eps[v, n, n, n] + eps[n, v, n, n] + eps[n, n, v, n] - eps[n, n, n, o])
@@ -99,9 +101,11 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     else:
         print("DEA-EOMCC(3p-1h) iterations did not converge")
 
-    # Set the r0 and rel trivially to 0
+    # r0 for a root in DEA is 0 by definition
     r0 = 0.0
-    rel = 0.0
+    # Compute relative excitation level diagnostic
+    rel = calc_rel_dea(R[:n1].reshape(nunocc, nunocc),
+                       R[n1:].reshape(nunocc, nunocc, nunocc, nocc))
     return R, omega, r0, rel
 
 def update(r1, r2, omega, e_ab, e_abck):
