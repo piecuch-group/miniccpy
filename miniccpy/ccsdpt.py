@@ -3,6 +3,10 @@ import numpy as np
 def kernel(T, fock, g, o, v):
 
     t1, t2 = T
+    eps = np.diagonal(fock)
+    n = np.newaxis
+    e_abcijk = 1.0 / (- eps[v, n, n, n, n, n] - eps[n, v, n, n, n, n] - eps[n, n, v, n, n, n]
+                    + eps[n, n, n, o, n, n] + eps[n, n, n, n, o, n] + eps[n, n, n, n, n, o])
 
     L3 = (9.0 / 36.0) * (
             np.einsum("ijab,ck->abcijk", g[o, o, v, v], t1, optimize=True)
@@ -14,6 +18,7 @@ def kernel(T, fock, g, o, v):
     L3 -= np.transpose(L3, (0, 1, 2, 4, 3, 5)) + np.transpose(L3, (0, 1, 2, 5, 4, 3)) # (i/jk)
     L3 -= np.transpose(L3, (0, 2, 1, 3, 4, 5)) # (bc)
     L3 -= np.transpose(L3, (2, 1, 0, 3, 4, 5)) + np.transpose(L3, (1, 0, 2, 3, 4, 5)) # (a/bc)
+    L3 *= e_abcijk
 
     M3 = (9.0 / 36.0) * (
              np.einsum("abie,ecjk->abcijk", g[v, v, o, v], t2, optimize=True)
