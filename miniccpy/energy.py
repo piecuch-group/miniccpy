@@ -12,12 +12,32 @@ def cc_energy(t1, t2, f, g, o, v):
 
     return energy
 
-def cc_energy_doubles(t2, g, o, v):
+def ccd_energy(t2, g, o, v):
     """ Calculate the ground-state CC correlation energy defined by
     < 0 | exp(-T2) H_N exp(T2) | 0> = 1/4 * < ij | v | ab > < ab | t2 | ij >
     """
     energy = 0.25 * np.einsum('ijab,abij->', g[o, o, v, v], t2)
 
+    return energy
+
+def rcc_energy(t1, t2, f, g, o, v):
+    """ Calculate the ground-state RHF-based CC correlation energy defined by
+    < 0 | exp(-T) H_N exp(T) | 0> = < i | f | a > < a | t1 | i > 
+                            + 1/4 * < ij | v | ab > < ab | t2 | ij >
+                            + 1/2 * < ij | v | ab > < a | t1 | i > < b | t1 | j >.
+    """
+    v_ss = 2.0 * g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
+    tau = t2 + np.einsum("ai,bj->abij", t1, t1, optimize=True)
+    energy = 2.0 * np.einsum("ia,ai->", f[o, v], t1, optimize=True)
+    energy += np.einsum("ijab,abij->", v_ss, tau, optimize=True)
+    return energy
+
+def rccd_energy(t2, g, o, v):
+    """ Calculate the ground-state RHF-based CC correlation energy defined by
+    < 0 | exp(-T2) H_N exp(T2) | 0> = < ij | v | ab > < ab | t2 | ij >
+    """
+    v_ss = 2.0 * g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
+    energy = np.einsum("ijab,abij->", v_ss, t2, optimize=True)
     return energy
 
 def calc_r0(r1, r2, H1, H2, omega, o, v):
@@ -66,6 +86,16 @@ def hf_energy(z, g, o):
     < 0 | H | 0 > = < i | z | i > + 1/2 * < ij | v | ij >."""
     energy = np.einsum('ii->', z[o, o])
     energy += 0.5 * np.einsum('ijij->', g[o, o, o, o])
+
+    return energy
+
+def rhf_energy(z, g, o):
+    """Calculate the RHF Hartree-Fock energy using the molecular orbital
+    integrals in un-normal order (i.e., using Z and V), defined as
+    < 0 | H | 0 > = 2 < i | z | i > + 2 < ij | v | ij > - < ij | v | ji >."""
+    energy = 2.0 * np.einsum('ii->', z[o, o])
+    energy += 2.0 * np.einsum('ijij->', g[o, o, o, o])
+    energy -= np.einsum('ijji->', g[o, o, o, o])
 
     return energy
 

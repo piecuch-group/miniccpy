@@ -1,7 +1,7 @@
 import numpy as np
 from pyscf import ao2mo
 
-from miniccpy.energy import hf_energy, hf_energy_from_fock
+from miniccpy.energy import hf_energy, hf_energy_from_fock, rhf_energy
 
 def get_integrals_from_pyscf(meanfield):
     """Obtain the RHF/ROHF molecular orbital integrals from PySCF and convert them to
@@ -30,6 +30,29 @@ def get_integrals_from_pyscf(meanfield):
     assert( abs(e_hf - e_hf_test) < 1.0e-09 )
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
+
+def get_integrals_from_pyscf_rhf(meanfield):
+    """Obtain the spatial molecular orbital integrals from PySCF and convert them to
+    the normal-ordered form. This implementation is used for RHF-based nonorthogonally
+    spin-adapted methods."""
+
+    molecule = meanfield.mol
+    mo_coeff = meanfield.mo_coeff
+    norbitals = mo_coeff.shape[1]
+
+    kinetic_aoints = molecule.intor_symmetric("int1e_kin")
+    nuclear_aoints = molecule.intor_symmetric("int1e_nuc")
+    e1int = np.einsum("pi,pq,qj->ij", mo_coeff, kinetic_aoints + nuclear_aoints, mo_coeff)
+    e2int = np.transpose(
+        np.reshape(ao2mo.kernel(molecule, mo_coeff, compact=False), 4 * (norbitals,)),
+        (0, 2, 1, 3),
+    )
+
+    occ = slice(0, int(molecule.nelectron / 2))
+    fock = get_fock_rhf(e1int, e2int, occ)
+    e_hf = rhf_energy(e1int, e2int, occ)
+
+    return e1int, e2int, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
 
 def get_integrals_from_pyscf_uhf(meanfield):
     """Obtain the UHF molecular orbital integrals from PySCF and convert them to
@@ -219,3 +242,13 @@ def get_fock(z, g, o):
 
     return f
 
+def get_fock_rhf(z, g, o):
+    """Calculate the RHF Fock matrix elements defined by
+        < p | f | q > = < p | z | q > + 2 < p i | v | q i > - < p i | v | i q >
+    using the spin-free orbital integrals z and v."""
+
+    f = (
+            z + 2.0 * np.einsum("piqi->pq", g[:, o, :, o])
+              - np.einsum("piiq->pq", g[:, o, o, :])
+    )
+    return f

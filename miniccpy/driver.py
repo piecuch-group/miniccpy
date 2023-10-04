@@ -29,13 +29,13 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0):
 
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
             maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10,
-            symmetry=None, cartesian=False, unit="Bohr", uhf=False):
+            symmetry=None, cartesian=False, unit="Bohr", uhf=False, rhf=False):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
     from pyscf import gto, scf
     from miniccpy.printing import print_system_information, print_custom_system_information
-    from miniccpy.integrals import get_integrals_from_pyscf, get_integrals_from_pyscf_uhf
+    from miniccpy.integrals import get_integrals_from_pyscf, get_integrals_from_pyscf_uhf, get_integrals_from_pyscf_rhf
 
     if symmetry is None:
         point_group = True
@@ -54,6 +54,8 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     )
     if uhf:
         mf = scf.UHF(mol)
+    elif rhf:
+        mf = scf.RHF(mol)
     else:
         mf = scf.ROHF(mol)
     # Put in SCF options for PySCF
@@ -66,11 +68,14 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     # 1-, 2-electron spinorbital integrals in physics notation
     if uhf:
         e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_pyscf_uhf(mf)
+    elif rhf:
+        e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_pyscf_rhf(mf)
+        corr_occ = slice(nfrozen, int(mf.mol.nelectron / 2))
+        corr_unocc = slice(int(mf.mol.nelectron / 2), e1int.shape[0])
     else:
         e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_pyscf(mf)
-
-    corr_occ = slice(2 * nfrozen, mf.mol.nelectron)
-    corr_unocc = slice(mf.mol.nelectron, e1int.shape[0])
+        corr_occ = slice(2 * nfrozen, mf.mol.nelectron)
+        corr_unocc = slice(mf.mol.nelectron, e1int.shape[0])
 
     if uhf:
         print_custom_system_information(fock, mf.mol.nelectron, nfrozen, e_hf)

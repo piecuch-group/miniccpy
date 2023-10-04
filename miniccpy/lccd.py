@@ -8,20 +8,14 @@ from miniccpy.updates import update_t2
 
 
 def doubles_residual(t2, f, g, o, v):
-    """Compute the projection of the CCD Hamiltonian on doubles
-        X[a, b, i, j] = < ijab | (H_N exp(T2))_C | 0 >
+    """Compute the projection of the L-CCD Hamiltonian on doubles
+        X[a, b, i, j] = < ijab | H_N + (H_N*T2)_C | 0 >
     """
-    # intermediates
-    I1_oo = f[o, o] + 0.5 * np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
-    I1_vv = f[v, v] - 0.5 * np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
-    I2_voov = g[v, o, o, v] + 0.5 * np.einsum("mnef,afin->amie", g[o, o, v, v], t2, optimize=True)
-    I2_oooo = g[o, o, o, o] + 0.5 * np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True)
-
-    doubles_res = 0.5 * np.einsum("ae,ebij->abij", I1_vv, t2, optimize=True)
-    doubles_res -= 0.5 * np.einsum("mi,abmj->abij", I1_oo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", I2_voov, t2, optimize=True)
+    doubles_res = 0.5 * np.einsum("ae,ebij->abij", f[v, v], t2, optimize=True)
+    doubles_res -= 0.5 * np.einsum("mi,abmj->abij", f[o, o], t2, optimize=True)
+    doubles_res += np.einsum("amie,ebmj->abij", g[v, o, o, v], t2, optimize=True)
     doubles_res += 0.125 * np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
-    doubles_res += 0.125 * np.einsum("mnij,abmn->abij", I2_oooo, t2, optimize=True)
+    doubles_res += 0.125 * np.einsum("mnij,abmn->abij", g[o, o, o, o], t2, optimize=True)
 
     doubles_res -= np.transpose(doubles_res, (1, 0, 2, 3))
     doubles_res -= np.transpose(doubles_res, (0, 1, 3, 2))
@@ -47,7 +41,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
     t2 = np.zeros((nunocc, nunocc, nocc, nocc))
     old_energy = ccd_energy(t2, g, o, v)
 
-    print("    ==> CCD amplitude equations <==")
+    print("    ==> L-CCD amplitude equations <==")
     print("")
     print("     Iter               Energy                 |dE|                 |dT|")
     for idx in range(maxit):
@@ -58,7 +52,6 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
         res_norm = np.linalg.norm(residual_doubles)
 
-        #t2 = update_t2(t2, residual_doubles, fock, g, o, v, energy_shift, quasi=use_quasi)
         t2 += residual_doubles * e_abij
 
         current_energy = ccd_energy(t2, g, o, v)
@@ -79,7 +72,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
         minutes, seconds = divmod(toc - tic, 60)
         print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
     else:
-        raise ValueError("CCD iterations did not converge")
+        raise ValueError("L-CCD iterations did not converge")
 
     diis_engine.cleanup()
     e_corr = ccd_energy(t2, g, o, v)
