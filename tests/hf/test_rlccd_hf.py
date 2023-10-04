@@ -9,7 +9,7 @@ geom = [['H', (0.0, 0.0, -0.8)],
 
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, maxit=200, unit="Angstrom", rhf=True)
 
-T, E_corr = run_cc_calc(fock, g, o, v, method='r-lccd', maxit=80)
+T, E_corr = run_cc_calc(fock, g, o, v, method='rlccd', maxit=80)
 
 assert np.allclose(-0.1766097824, E_corr, atol=1.0e-08)
 
