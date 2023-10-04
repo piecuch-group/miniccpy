@@ -142,6 +142,37 @@ def run_cc_calc(fock, g, o, v, method,
 
     return T, e_corr
 
+def run_leftcc_calc(H1, H2, T, o, v, method, 
+                maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False):
+    """Run the ground-state left-CC calculation specified by `method`."""
+
+    # check if requested left-CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    # Turn off DIIS for small systems; it becomes singular!
+    if H1.shape[0] <= 4: 
+        print("Turning off DIIS acceleration for small system")
+        diis_size = 1000 
+
+    tic = time.time()
+    L, omega = calculation(H1, H2, T, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    toc = time.time()
+
+    minutes, seconds = divmod(toc - tic, 60)
+    print("")
+    print("    Left-CC Excitation Energy: {: 20.12f}".format(omega))
+    print("")
+    print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+
+    return L
+
 def run_correction(T, fock, g, o, v, method): 
     """Run the ground-state CC correction specified by `method`."""
     from miniccpy.energy import cc_energy

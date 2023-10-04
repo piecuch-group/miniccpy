@@ -70,6 +70,8 @@ def build_hbar_rccsd(T, f, g, o, v):
                 + np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True)
     )
 
+    H2[o, o, v, v] = g[o, o, v, v].copy()
+
     H2[v, o, o, v] = g[v, o, o, v] + (
                 np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
                 - np.einsum("nmie,an->amie", I_ooov, t1, optimize=True)

@@ -12,6 +12,10 @@ def cc_energy(t1, t2, f, g, o, v):
 
     return energy
 
+def lccsd_energy(l1, l2, lh1, lh2):
+    energy = np.sqrt( np.sum(lh1.flatten()**2) + np.sum(lh2.flatten()**2) ) / np.sqrt( np.sum(l1.flatten()**2) + np.sum(l2.flatten()**2) )
+    return energy
+
 def ccd_energy(t2, g, o, v):
     """ Calculate the ground-state CC correlation energy defined by
     < 0 | exp(-T2) H_N exp(T2) | 0> = 1/4 * < ij | v | ab > < ab | t2 | ij >
