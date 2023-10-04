@@ -8,7 +8,6 @@ def doubles_residual(t2, f, g, o, v):
         X[a, b, i, j] = < ijab | H_N + (H_N * T2)_C | 0 >
     """
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    gs = g - np.transpose(g, (0, 1, 3, 2))
 
     doubles_res = np.einsum("ae,ebij->abij", f[v, v], t2, optimize=True)
     doubles_res += np.einsum("be,aeij->abij", f[v, v], t2, optimize=True)
@@ -16,10 +15,12 @@ def doubles_residual(t2, f, g, o, v):
     doubles_res -= np.einsum("mj,abim->abij", f[o, o], t2, optimize=True)
     doubles_res += np.einsum("mnij,abmn->abij", g[o, o, o, o], t2, optimize=True)
     doubles_res += np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", gs[v, o, o, v], t2, optimize=True)
+    doubles_res += np.einsum("amie,ebmj->abij", g[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("amei,ebmj->abij", g[v, o, v, o], t2, optimize=True)
     doubles_res += np.einsum("amie,ebmj->abij", g[v, o, o, v], t2s, optimize=True)
     doubles_res += np.einsum("mbej,aeim->abij", g[o, v, v, o], t2s, optimize=True)
-    doubles_res += np.einsum("bmje,aeim->abij", gs[v, o, o, v], t2, optimize=True)
+    doubles_res += np.einsum("bmje,aeim->abij", g[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("bmej,aeim->abij", g[v, o, v, o], t2, optimize=True)
     doubles_res -= np.einsum("mbie,aemj->abij", g[o, v, o, v], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", g[v, o, v, o], t2, optimize=True)
     doubles_res += g[v, v, o, o]

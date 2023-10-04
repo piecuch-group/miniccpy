@@ -8,32 +8,25 @@ def get_rccs_intermediates(t1, f, g, o, v):
     # allocate arrays
     H1 = np.zeros((norbitals, norbitals))
     H2 = np.zeros((norbitals, norbitals, norbitals, norbitals))
-    H2s = np.zeros((norbitals, norbitals, norbitals, norbitals))
-    # symmetric quantities
-    gs = g - np.transpose(g, (0, 1, 3, 2))
-    #
+    # 1-body intermediates
     H1[o, v] = f[o, v] + (
-          np.einsum("mnef,fn->me", gs[o, o, v, v], t1, optimize=True)
+          np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
+        - np.einsum("mnfe,fn->me", g[o, o, v, v], t1, optimize=True)
         + np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
     )
     H1[v, v] = f[v, v] + (
-          np.einsum("anef,fn->ae", gs[v, o, v, v], t1, optimize=True)
+          np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
+        - np.einsum("anfe,fn->ae", g[v, o, v, v], t1, optimize=True)
         + np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
         - np.einsum("me,am->ae", H1[o, v], t1, optimize=True)
     )
     H1[o, o] = f[o, o] + (
-          np.einsum("mnif,fn->mi", gs[o, o, o, v], t1, optimize=True)
+          np.einsum("mnif,fn->mi", g[o, o, o, v], t1, optimize=True)
+        - np.einsum("nmif,fn->mi", g[o, o, o, v], t1, optimize=True)
         + np.einsum("mnif,fn->mi", g[o, o, o, v], t1, optimize=True)
         + np.einsum("me,ei->mi", H1[o, v], t1, optimize=True)
     )
-    #
-    H2s[o, o, o, v] = np.einsum("mnfe,fi->mnie", gs[o, o, v, v], t1, optimize=True) 
-    H2s[v, o, v, v] = -np.einsum("mnfe,an->amef", gs[o, o, v, v], t1, optimize=True) 
-    H2s[v, o, o, v] = gs[v, o, o, v] + (
-              np.einsum("amfe,fi->amie", gs[v, o, v, v] + 0.5 * H2s[v, o, v, v], t1, optimize=True)
-            - np.einsum("nmie,an->amie", gs[o, o, o, v] + 0.5 * H2s[o, o, o, v], t1, optimize=True)
-    )
-    #
+    # 2-body intermediates
     H2[o, o, o, v] = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
     H2[o, o, v, o] = np.einsum("nmef,fi->nmei", g[o, o, v, v], t1, optimize=True)
     H2[o, o, o, o] = g[o, o, o, o] + (
@@ -58,20 +51,22 @@ def get_rccs_intermediates(t1, f, g, o, v):
           np.einsum("nmei,an->amei", g[o, o, v, o] + 0.5 * H2[o, o, v, o], t1, optimize=True)
         - np.einsum("amef,fi->amei", g[v, o, v, v] + 0.5 * H2[v, o, v, v], t1, optimize=True)
     )
-    X_mnij = g[o, o, o, o] + (
+
+    I_oooo = g[o, o, o, o] + (
           np.einsum("mnif,fj->mnij", g[o, o, o, v], t1, optimize=True)
         + np.einsum("mnej,ei->mnij", g[o, o, v, o], t1, optimize=True)
     )
-    L_mbej = g[o, v, v, o] + np.einsum("mbef,fj->mbej", g[o, v, v, v], t1, optimize=True)
+    I_ovvo = g[o, v, v, o] + np.einsum("mbef,fj->mbej", g[o, v, v, v], t1, optimize=True)
+    I_voov = np.einsum("amef,ei->amif", g[v, o, v, v] + H2[v, o, v, v], t1, optimize=True)
+
     H2[o, v, o, o] = g[o, v, o, o] + (
-          np.einsum("mbej,ei->mbij", L_mbej, t1, optimize=True)
-        - np.einsum("mnij,bn->mbij", X_mnij, t1, optimize=True)
+          np.einsum("mbej,ei->mbij", I_ovvo, t1, optimize=True)
+        - np.einsum("mnij,bn->mbij", I_oooo, t1, optimize=True)
     )
-    L_amie = np.einsum("amef,ei->amif", g[v, o, v, v] + H2[v, o, v, v], t1, optimize=True)
-    H2[v, o, o, o] = g[v, o, o, o] + np.einsum("amif,fj->amij", g[v, o, o, v] + L_amie, t1, optimize=True)
+    H2[v, o, o, o] = g[v, o, o, o] + np.einsum("amif,fj->amij", g[v, o, o, v] + I_voov, t1, optimize=True)
     H2[v, v, v, o] = g[v, v, v, o] - np.einsum("anej,bn->abej", g[v, o, v, o], t1, optimize=True)
     H2[v, v, o, v] = g[v, v, o, v] - np.einsum("mbie,am->abie", g[o, v, o, v], t1, optimize=True)
-    return H1, H2, H2s
+    return H1, H2
 
 def get_ccs_intermediates(t1, f, g, o, v):
     """Calculate the quantities related to the one-

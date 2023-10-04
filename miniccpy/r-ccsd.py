@@ -10,41 +10,43 @@ def singles_residual(t1, t2, f, g, o, v):
     """
     # symmetric quantities
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    gs = g - np.transpose(g, (0, 1, 3, 2))
+    gs_oovv = g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
+    gs_ooov = g[o, o, o, v] - np.transpose(g[o, o, o, v], (1, 0, 2, 3))
     # intermediates
     I_ov = (
              f[o, v]
-           + np.einsum("mnef,fn->me", gs[o, o, v, v], t1, optimize=True)
+           + np.einsum("mnef,fn->me", gs_oovv, t1, optimize=True)
            + np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
     )
     I_vv = (
             f[v, v]
-            + np.einsum("anef,fn->ae", gs[v, o, v, v], t1, optimize=True)
+            + np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
+            - np.einsum("anfe,fn->ae", g[v, o, v, v], t1, optimize=True)
             + np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
     )
     I_oo = (
             f[o, o]
-            + np.einsum("mnif,fn->mi", gs[o, o, o, v], t1, optimize=True)
+            + np.einsum("mnif,fn->mi", gs_ooov, t1, optimize=True)
             + np.einsum("mnif,fn->mi", g[o, o, o, v], t1, optimize=True)
             + np.einsum("me,ei->mi", I_ov, t1, optimize=True)
     )
-    Is_ooov = gs[o, o, o, v] + np.einsum("mnfe,fi->mnie", gs[o, o, v, v], t1, optimize=True)
     I_ooov = g[o, o, o, v] + np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
-    Is_vovv = gs[v, o, v, v] - np.einsum("mnfe,an->amef", gs[o, o, v, v], t1, optimize=True)
     I_vovv = g[v, o, v, v] - np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)
 
     singles_res = -np.einsum("mi,am->ai", I_oo, t1, optimize=True)
     singles_res += np.einsum("ae,ei->ai", I_vv, t1, optimize=True)
-    singles_res += np.einsum("anif,fn->ai", gs[v, o, o, v], t1, optimize=True)
+    singles_res += np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
+    singles_res -= np.einsum("anfi,fn->ai", g[v, o, v, o], t1, optimize=True)
     singles_res += np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
     singles_res += np.einsum("me,aeim->ai", I_ov, t2s, optimize=True)
     singles_res += np.einsum("me,aeim->ai", I_ov, t2, optimize=True)
-    singles_res -= 0.5 * np.einsum("mnif,afmn->ai", Is_ooov, t2s, optimize=True)
+    singles_res -= 0.5 * np.einsum("mnif,afmn->ai", I_ooov, t2s, optimize=True)
+    singles_res += 0.5 * np.einsum("nmif,afmn->ai", I_ooov, t2s, optimize=True)
     singles_res -= np.einsum("mnif,afmn->ai", I_ooov, t2, optimize=True)
-    singles_res += 0.5 * np.einsum("anef,efin->ai", Is_vovv, t2s, optimize=True)
+    singles_res += 0.5 * np.einsum("anef,efin->ai", I_vovv, t2s, optimize=True)
+    singles_res -= 0.5 * np.einsum("anfe,efin->ai", I_vovv, t2s, optimize=True)
     singles_res += np.einsum("anef,efin->ai", I_vovv, t2, optimize=True)
     singles_res += f[v, o]
-
     return singles_res
 
 def doubles_residual(t1, t2, f, g, o, v):
@@ -52,31 +54,25 @@ def doubles_residual(t1, t2, f, g, o, v):
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
 
-    H1, H2, H2s = get_rccs_intermediates(t1, f, g, o, v)
+    H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
     # symmetric quantities
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    gs = g - np.transpose(g, (0, 1, 3, 2))
+    gs_oovv = g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
     # intermediates
     I_vv = (
         H1[v, v]
-        - 0.5 * np.einsum("mnef,afmn->ae", gs[o, o, v, v], t2s, optimize=True)
+        - 0.5 * np.einsum("mnef,afmn->ae", gs_oovv, t2s, optimize=True)
         - np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
     )
     I_oo = (
         H1[o, o]
-        + 0.5 * np.einsum("mnef,efin->mi", gs[o, o, v, v], t2s, optimize=True)
+        + 0.5 * np.einsum("mnef,efin->mi", gs_oovv, t2s, optimize=True)
         + np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
     )
-    Is_voov = (
-        H2s[v, o, o, v]
-        + np.einsum("mnef,aeim->anif", gs[o, o, v, v], t2s, optimize=True)
-        + np.einsum("nmfe,aeim->anif", g[o, o, v, v], t2, optimize=True)
-    )
-
     I_voov = (
         H2[v, o, o, v]
         + np.einsum("mnef,aeim->anif", g[o, o, v, v], t2s, optimize=True)
-        + np.einsum("mnef,aeim->anif", gs[o, o, v, v], t2, optimize=True)
+        + np.einsum("mnef,aeim->anif", gs_oovv, t2, optimize=True)
     )
     I_oooo = H2[o, o, o, o] + np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True)
     I_vovo = H2[v, o, v, o] - np.einsum("mnef,afmj->anej", g[o, o, v, v], t2, optimize=True)
@@ -93,10 +89,12 @@ def doubles_residual(t1, t2, f, g, o, v):
     doubles_res += np.einsum("be,aeij->abij", I_vv, t2, optimize=True)
     doubles_res -= np.einsum("mi,abmj->abij", I_oo, t2, optimize=True)
     doubles_res -= np.einsum("mj,abim->abij", I_oo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", Is_voov, t2, optimize=True)
+    doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2, optimize=True)
+    doubles_res -= np.einsum("amei,ebmj->abij", I_vovo, t2, optimize=True)
     doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2s, optimize=True)
     doubles_res += np.einsum("mbej,aeim->abij", H2[o, v, v, o], t2s, optimize=True)
-    doubles_res += np.einsum("bmje,aeim->abij", H2s[v, o, o, v], t2, optimize=True)
+    doubles_res += np.einsum("bmje,aeim->abij", H2[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("bmej,aeim->abij", H2[v, o, v, o], t2, optimize=True)
     doubles_res -= np.einsum("mbie,aemj->abij", H2[o, v, o, v], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", I_vovo, t2, optimize=True)
     doubles_res += np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
