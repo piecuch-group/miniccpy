@@ -243,44 +243,39 @@ def spin_label(p):
     else:
         return "A"
 
-def print_amplitudes(t1, t2, print_threshold):
-    print("     Largest Singles and Doubles Amplitudes")
-    print("     --------------------------------------")
+def print_amplitudes(t1, t2, print_threshold, rhf=False):
+
     nu, no = t1.shape
     n = 1
-    print("          i -> a")
-    for a in range(nu):
-        for i in range(no):
-            if abs(t1[a, i]) <= print_threshold: continue
-            print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {t1[a, i]}") 
-            n += 1
-    print("          i j -> a b")
-    for a in range(nu):
-        for b in range(a + 1, nu):
+    if rhf:
+        print("          I -> A")
+        for a in range(nu):
             for i in range(no):
-                for j in range(i + 1, no):
-                    if abs(t2[a, b, i, j]) <= print_threshold: continue
-                    print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} {spatial_index(j + 1)}{spin_label(j + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)} {spatial_index(b + no + 1)}{spin_label(b + no + 1)}    {t2[a, b, i, j]}") 
-                    n += 1
+                if abs(t1[a, i]) <= print_threshold: continue
+                print(f"     [{n}]  {i + 1} -> {a + no + 1}    {t1[a, i]}") 
+                n += 1
+        print("          I J -> A B")
+        for a in range(nu):
+            for b in range(a, nu):
+                for i in range(no):
+                    for j in range(i, no):
+                        if abs(t2[a, b, i, j]) <= print_threshold: continue
+                        print(f"     [{n}]  {i + 1} {j + 1} -> {a + no + 1} {b + no + 1}    {t2[a, b, i, j]}") 
+                        n += 1
+    else:
+        print("          i -> a")
+        for a in range(nu):
+            for i in range(no):
+                if abs(t1[a, i]) <= print_threshold: continue
+                print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)}    {t1[a, i]}") 
+                n += 1
+        print("          i j -> a b")
+        for a in range(nu):
+            for b in range(a + 1, nu):
+                for i in range(no):
+                    for j in range(i + 1, no):
+                        if abs(t2[a, b, i, j]) <= print_threshold: continue
+                        print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} {spatial_index(j + 1)}{spin_label(j + 1)} -> {spatial_index(a + no + 1)}{spin_label(a + no + 1)} {spatial_index(b + no + 1)}{spin_label(b + no + 1)}    {t2[a, b, i, j]}") 
+                        n += 1
     return
 
-def print_amplitudes_rhf(t1, t2, print_threshold):
-    print("     Largest Singles and Doubles Amplitudes")
-    print("     --------------------------------------")
-    nu, no = t1.shape
-    n = 1
-    print("          I -> A")
-    for a in range(nu):
-        for i in range(no):
-            if abs(t1[a, i]) <= print_threshold: continue
-            print(f"     [{n}]  {i + 1} -> {a + no + 1}    {t1[a, i]}") 
-            n += 1
-    print("          I J -> A B")
-    for a in range(nu):
-        for b in range(a, nu):
-            for i in range(no):
-                for j in range(i, no):
-                    if abs(t2[a, b, i, j]) <= print_threshold: continue
-                    print(f"     [{n}]  {i + 1} {j + 1} -> {a + no + 1} {b + no + 1}    {t2[a, b, i, j]}") 
-                    n += 1
-    return

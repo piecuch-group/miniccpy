@@ -1,14 +1,15 @@
 import time
 import numpy as np
 from importlib import import_module
-
 from os.path import dirname, basename, isfile, join
 import glob
 
+# Obtain all modules in Miniccpy
 modules = glob.glob(join(dirname(__file__), "*.py"))
-
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
+# Manually specify those modules that are RHF non-orthogonally spin-adapted codes
+RHF_MODULES = ["rlccd", "rccd", "rccsd", "left_rccsd", "eomrccsd"]
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
@@ -113,16 +114,19 @@ def run_mpn_calc(fock, g, o, v, method):
 
     return e_corr
 
-
-def run_cc_calc(fock, g, o, v, method, 
-                maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False):
+def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False):
     """Run the ground-state CC calculation specified by `method`."""
+    from miniccpy.printing import print_amplitudes
 
     # check if requested CC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
             "{} not implemented".format(method)
         )
+    if method in RHF_MODULES:
+        flag_rhf = True
+    else:
+        flag_rhf = False
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
@@ -141,20 +145,26 @@ def run_cc_calc(fock, g, o, v, method,
     print("")
     print("    CC Correlation Energy: {: 20.12f}".format(e_corr))
     print("")
-    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("    Largest Singly and Doubly Excited Amplitudes")
+    print_amplitudes(T[0], T[1], 0.025, rhf=flag_rhf)
+    print("    \nCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
 
     return T, e_corr
 
-def run_leftcc_calc(T, H1, H2, o, v, method, 
-                maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False):
+def run_leftcc_calc(T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False):
     """Run the ground-state left-CC calculation specified by `method`."""
+    from miniccpy.printing import print_amplitudes
 
     # check if requested left-CC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
             "{} not implemented".format(method)
         )
+    if method in RHF_MODULES:
+        flag_rhf = True
+    else:
+        flag_rhf = False
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
@@ -172,7 +182,9 @@ def run_leftcc_calc(T, H1, H2, o, v, method,
     print("")
     print("    Left-CC Excitation Energy: {: 20.12f}".format(omega))
     print("")
-    print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("    Largest Singly and Doubly Excited Amplitudes")
+    print_amplitudes(L[0], L[1], 0.025, rhf=flag_rhf)
+    print("    \nLeft-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
 
     return L
@@ -275,13 +287,16 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
 def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, denom_type="fock"):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
-
-
+    from miniccpy.printing import print_amplitudes
     # check if requested EOMCC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
             "{} not implemented".format(method)
         )
+    if method in RHF_MODULES:
+        flag_rhf = True
+    else:
+        flag_rhf = False
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
@@ -311,6 +326,9 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    EOMCC Excitation Energy: {: 20.12f}".format(omega[n]))
         print("    r0 = {: 20.12f}".format(r0[n]))
         print("    REL = {: 20.12f}".format(rel))
+        print("")
+        print("    Largest Singly and Doubly Excited Amplitudes")
+        print_amplitudes(R[n][0], R[n][1], 0.025, rhf=flag_rhf)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         print("")
