@@ -21,8 +21,8 @@ def build_hbar_rccsd(T, f, g, o, v):
     H2 = np.zeros((norbitals, norbitals, norbitals, norbitals))
 
     H1[o, v] = f[o, v] + (
-                np.einsum("imae,em->ia", gs_oovv, t1, optimize=True)
-                + np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
+                2.0 * np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
+                - np.einsum("imea,em->ia", g[o, o, v, v], t1, optimize=True)
     )
 
     H1[o, o] = f[o, o] + (

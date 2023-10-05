@@ -97,6 +97,6 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
     diis_engine.cleanup()
     e_corr = rccd_energy(t2, g, o, v)
 
-    return (t2), e_corr
+    return (np.zeros((nunocc, nocc)), t2), e_corr
 
 

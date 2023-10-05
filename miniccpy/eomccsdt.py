@@ -121,7 +121,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
                    R[:n1].reshape(nunocc, nocc),
                    R[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc))
 
-    return (R[:n1].reshape(nunocc, nocc), R[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc), R[n1:n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc)), omega, r0, rel
+    return (R[:n1].reshape(nunocc, nocc), R[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc), R[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc)), omega, r0, rel
 
 def update(r1, r2, r3, omega, e_ai, e_abij, e_abcijk):
     """Perform the diagonally preconditioned residual (DPR) update

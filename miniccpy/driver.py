@@ -146,8 +146,10 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
     print("    CC Correlation Energy: {: 20.12f}".format(e_corr))
     print("")
     print("    Largest Singly and Doubly Excited Amplitudes")
+    print("    --------------------------------------------")
     print_amplitudes(T[0], T[1], 0.025, rhf=flag_rhf)
-    print("    \nCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
 
     return T, e_corr
@@ -183,8 +185,10 @@ def run_leftcc_calc(T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, ener
     print("    Left-CC Excitation Energy: {: 20.12f}".format(omega))
     print("")
     print("    Largest Singly and Doubly Excited Amplitudes")
+    print("    --------------------------------------------")
     print_amplitudes(L[0], L[1], 0.025, rhf=flag_rhf)
-    print("    \nLeft-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+    print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
 
     return L
@@ -328,7 +332,9 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    REL = {: 20.12f}".format(rel))
         print("")
         print("    Largest Singly and Doubly Excited Amplitudes")
-        print_amplitudes(R[n][0], R[n][1], 0.025, rhf=flag_rhf)
+        print("    --------------------------------------------")
+        if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomcc3", "eomcc3-lin"]:
+            print_amplitudes(R[n][0], R[n][1], 0.025, rhf=flag_rhf)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         print("")

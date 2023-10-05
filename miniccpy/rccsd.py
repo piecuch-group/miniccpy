@@ -10,24 +10,21 @@ def singles_residual(t1, t2, f, g, o, v):
     """
     # symmetric quantities
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    gs_oovv = g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
-    gs_ooov = g[o, o, o, v] - np.transpose(g[o, o, o, v], (1, 0, 2, 3))
     # intermediates
     I_ov = (
              f[o, v]
-           + np.einsum("mnef,fn->me", gs_oovv, t1, optimize=True)
-           + np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
+           + 2.0 * np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
+           - np.einsum("mnfe,fn->me", g[o, o, v, v], t1, optimize=True)
     )
     I_vv = (
             f[v, v]
-            + np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
+            + 2.0 * np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
             - np.einsum("anfe,fn->ae", g[v, o, v, v], t1, optimize=True)
-            + np.einsum("anef,fn->ae", g[v, o, v, v], t1, optimize=True)
     )
     I_oo = (
             f[o, o]
-            + np.einsum("mnif,fn->mi", gs_ooov, t1, optimize=True)
-            + np.einsum("mnif,fn->mi", g[o, o, o, v], t1, optimize=True)
+            + 2.0 * np.einsum("mnif,fn->mi", g[o, o, o, v], t1, optimize=True)
+            - np.einsum("nmif,fn->mi", g[o, o, o, v], t1, optimize=True)
             + np.einsum("me,ei->mi", I_ov, t1, optimize=True)
     )
     I_ooov = g[o, o, o, v] + np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
@@ -35,11 +32,10 @@ def singles_residual(t1, t2, f, g, o, v):
 
     singles_res = -np.einsum("mi,am->ai", I_oo, t1, optimize=True)
     singles_res += np.einsum("ae,ei->ai", I_vv, t1, optimize=True)
-    singles_res += np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
+    singles_res += 2.0 * np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
     singles_res -= np.einsum("anfi,fn->ai", g[v, o, v, o], t1, optimize=True)
-    singles_res += np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
-    singles_res += np.einsum("me,aeim->ai", I_ov, t2s, optimize=True)
-    singles_res += np.einsum("me,aeim->ai", I_ov, t2, optimize=True)
+    singles_res += 2.0 * np.einsum("me,aeim->ai", I_ov, t2, optimize=True)
+    singles_res -= np.einsum("me,aemi->ai", I_ov, t2, optimize=True)
     singles_res -= 0.5 * np.einsum("mnif,afmn->ai", I_ooov, t2s, optimize=True)
     singles_res += 0.5 * np.einsum("nmif,afmn->ai", I_ooov, t2s, optimize=True)
     singles_res -= np.einsum("mnif,afmn->ai", I_ooov, t2, optimize=True)

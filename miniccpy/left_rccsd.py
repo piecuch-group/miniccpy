@@ -7,9 +7,6 @@ def LH_singles(l1, l2, t2, H1, H2, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
         X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
     """
-    # symmetric quantities
-    t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    l2s = l2 - np.transpose(l2, (0, 1, 3, 2))
     # h(EA)*l(EI)
     LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
     # -h(IM)*l(AM)
@@ -17,41 +14,25 @@ def LH_singles(l1, l2, t2, H1, H2, o, v):
     # [2*h(EIMA) - h(EIAM)]*l(EM)
     LH += 2.0 * np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
     LH -= np.einsum("eiam,em->ai", H2[v, o, v, o], l1, optimize=True)
-    #
-    LH += 0.5 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2s, optimize=True)
-    LH -= 0.5 * np.einsum("efna,efin->ai", H2[v, v, o, v], l2s, optimize=True)
-    LH += np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
-    #
-    LH -= 0.5 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
-    LH += 0.5 * np.einsum("fimn,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
-    LH -= np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
+    # h(FENA)*[2*l(EFIN) - l(EFNI)]
+    LH += 2.0 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
+    LH -= np.einsum("fena,efni->ai", H2[v, v, o, v], l2, optimize=True)
+    # -h(FINM)*[2*l(AFMN) - l(AFNM)]
+    LH -= 2.0 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
+    LH += np.einsum("finm,afnm->ai", H2[v, o, o, o], l2, optimize=True)
 
     I1 = (
-            0.25 * np.einsum("efmn,fgnm->ge", l2s, t2s, optimize=True)
-           -0.25 * np.einsum("efmn,egnm->gf", l2s, t2s, optimize=True)
+          -2.0 * np.einsum("afmn,efmn->ea", l2, t2, optimize=True)
+          + np.einsum("afnm,efmn->ea", l2, t2, optimize=True)
     )
     I2 = (
-            -0.25 * np.einsum("efmo,efno->mn", l2s, t2s, optimize=True)
-            +0.25 * np.einsum("efmo,efnm->on", l2s, t2s, optimize=True)
+          2.0 * np.einsum("efin,efjn->ij", l2, t2, optimize=True)
+          - np.einsum("efni,efjn->ij", l2, t2, optimize=True)
     )
-    LH += np.einsum("ge,eiga->ai", I1, H2[v, o, v, v], optimize=True)
-    LH -= np.einsum("ge,eiag->ai", I1, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("fa,amfe->em", I1, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("mn,nima->ai", I2, H2[o, o, o, v], optimize=True)
-    LH -= np.einsum("mn,inma->ai", I2, H2[o, o, o, v], optimize=True)
-    LH += np.einsum("in,nmie->em", I2, H2[o, o, o, v], optimize=True)
-
-    I1 = -np.einsum("abij,abin->jn", l2, t2, optimize=True)
-    I2 = np.einsum("abij,afij->fb", l2, t2, optimize=True)
-    I3 = np.einsum("abij,fbij->fa", l2, t2, optimize=True)
-    I4 = -np.einsum("abij,abnj->in", l2, t2, optimize=True)
-
-    LH += np.einsum("jn,mnej->em", I1, H2[o, o, v, o], optimize=True)
-    LH += np.einsum("fb,mbef->em", I2, H2[o, v, v, v], optimize=True)
-    LH += np.einsum("fa,amfe->em", I3, H2[v, o, v, v], optimize=True)
-    LH -= np.einsum("fa,amef->em", I3, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("in,nmie->em", I4, H2[o, o, o, v], optimize=True)
-    LH -= np.einsum("in,mnie->em", I4, H2[o, o, o, v], optimize=True)
+    LH -= 2.0 * np.einsum("ge,eiga->ai", I1, H2[v, o, v, v], optimize=True)
+    LH += np.einsum("ge,eiag->ai", I1, H2[v, o, v, v], optimize=True)
+    LH -= 2.0 * np.einsum("mn,nima->ai", I2, H2[o, o, o, v], optimize=True)
+    LH += np.einsum("mn,inma->ai", I2, H2[o, o, o, v], optimize=True)
 
     LH += H1[o, v].transpose(1, 0)
     return LH
@@ -60,58 +41,48 @@ def LH_doubles(l1, l2, t2, H1, H2, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
-    # symmetric quantities
-    t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    l2s = l2 - np.transpose(l2, (0, 1, 3, 2))
-    #
     LH = -np.einsum("ijmb,am->abij", H2[o, o, o, v], l1, optimize=True)
-    LH -= np.einsum("ijam,bm->abij", H2[o, o, v, o], l1, optimize=True)
+    #LH -= np.einsum("jima,bm->abij", H2[o, o, o, v], l1, optimize=True) # (ij)(ab) of above
 
     LH += np.einsum("ejab,ei->abij", H2[v, o, v, v], l1, optimize=True)
-    LH += np.einsum("ieab,ej->abij", H2[o, v, v, v], l1, optimize=True)
+    #LH += np.einsum("eiba,ej->abij", H2[v, o, v, v], l1, optimize=True) # (ij)(ab) of above
 
-    LH += np.einsum("ijmn,abmn->abij", H2[o, o, o, o], l2, optimize=True)
-    LH += np.einsum("efab,efij->abij", H2[v, v, v, v], l2, optimize=True)
-
-    LH += np.einsum("ejmb,aeim->abij", H2[v, o, o, v], l2s, optimize=True)
-    LH += np.einsum("eima,ebmj->abij", H2[v, o, o, v], l2, optimize=True)
-    LH -= np.einsum("eiam,ebmj->abij", H2[v, o, v, o], l2, optimize=True)
-    LH += np.einsum("ejmb,aeim->abij", H2[v, o, o, v], l2, optimize=True)
-    LH -= np.einsum("ejbm,aeim->abij", H2[v, o, v, o], l2, optimize=True)
-    LH += np.einsum("ieam,ebmj->abij", H2[o, v, v, o], l2s, optimize=True)
-    LH -= np.einsum("iemb,aemj->abij", H2[o, v, o, v], l2, optimize=True)
-    LH -= np.einsum("ejam,ebim->abij", H2[v, o, v, o], l2, optimize=True)
-
-    I1 = (
-          -0.5 * np.einsum("afmn,efmn->ea", l2s, t2s, optimize=True)
-          - np.einsum("afmn,efmn->ea", l2, t2, optimize=True)
-    )
-    LH += np.einsum("ea,ijeb->abij", I1, H2[o, o, v, v], optimize=True)
-
-    I1 = (
-          0.5 * np.einsum("efin,efmn->im", l2s, t2s, optimize=True)
-          + np.einsum("efin,efmn->im", l2, t2, optimize=True)
-    )
-    LH -= np.einsum("im,mjab->abij", I1, H2[o, o, v, v], optimize=True)
-
-    I1 = (
-          -0.5 * np.einsum("afmn,efmn->ea", l2s, t2s, optimize=True)
-          - np.einsum("fanm,fenm->ea", l2, t2, optimize=True)
-    )
-    LH += np.einsum("ea,jibe->baji", I1, H2[o, o, v, v], optimize=True)
-
-    I1 = (
-          0.5 * np.einsum("efin,efmn->im", l2s, t2s, optimize=True)
-          + np.einsum("feni,fenm->im", l2, t2, optimize=True)
-    )
-    LH -= np.einsum("im,jmba->baji", I1, H2[o, o, v, v], optimize=True)
+    LH += 2.0 * np.einsum("ejmb,aeim->abij", H2[v, o, o, v], l2, optimize=True)
+    LH -= np.einsum("ejmb,aemi->abij", H2[v, o, o, v], l2, optimize=True)
+    #LH += 2.0 * np.einsum("eima,ebmj->abij", H2[v, o, o, v], l2, optimize=True) # (ij)(ab) of above
+    #LH -= np.einsum("eima,ebjm->abij", H2[v, o, o, v], l2, optimize=True)
 
     LH += np.einsum("ea,ebij->abij", H1[v, v], l2, optimize=True)
-    LH += np.einsum("eb,aeij->abij", H1[v, v], l2, optimize=True)
+    #LH += np.einsum("eb,aeij->abij", H1[v, v], l2, optimize=True) # (ij)(ab) of above
+
     LH -= np.einsum("im,abmj->abij", H1[o, o], l2, optimize=True)
-    LH -= np.einsum("jm,abim->abij", H1[o, o], l2, optimize=True)
+    #LH -= np.einsum("jm,abim->abij", H1[o, o], l2, optimize=True) # (ij)(ab) of above
+
     LH += np.einsum("jb,ai->abij", H1[o, v], l1, optimize=True)
-    LH += np.einsum("ia,bj->abij", H1[o, v], l1, optimize=True)
+    #LH += np.einsum("ia,bj->abij", H1[o, v], l1, optimize=True) # (ij)(ab) of above
+
+    LH += 0.5 * np.einsum("ijmn,abmn->abij", H2[o, o, o, o], l2, optimize=True)
+    LH += 0.5 * np.einsum("efab,efij->abij", H2[v, v, v, v], l2, optimize=True)
+
+    LH -= np.einsum("eiam,ebmj->abij", H2[v, o, v, o], l2, optimize=True)
+    LH -= np.einsum("ejam,ebim->abij", H2[v, o, v, o], l2, optimize=True)
+    #LH -= np.einsum("ejbm,aeim->abij", H2[v, o, v, o], l2, optimize=True) # (ij)(ab) of above
+    #LH -= np.einsum("eibm,aemj->abij", H2[v, o, v, o], l2, optimize=True)
+
+    I1 = (
+          -2.0 * np.einsum("afmn,efmn->ea", l2, t2, optimize=True)
+          + np.einsum("afnm,efmn->ea", l2, t2, optimize=True)
+    )
+    I2 = (
+          2.0 * np.einsum("efin,efjn->ij", l2, t2, optimize=True)
+          - np.einsum("efni,efjn->ij", l2, t2, optimize=True)
+    )
+    LH += np.einsum("ea,ijeb->abij", I1, H2[o, o, v, v], optimize=True)
+    LH -= np.einsum("im,mjab->abij", I2, H2[o, o, v, v], optimize=True)
+    #LH += np.einsum("ea,jibe->baji", I1, H2[o, o, v, v], optimize=True) # (ij)(ab) of above
+    #LH -= np.einsum("im,jmba->baji", I1, H2[o, o, v, v], optimize=True)
+    # apply symmetrizer (ij)(ab)
+    LH += LH.transpose(1, 0, 3, 2)
     LH += H2[o, o, v, v].transpose(2, 3, 0, 1)
     return LH
 

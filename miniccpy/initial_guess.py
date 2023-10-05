@@ -564,7 +564,6 @@ def spin_function(C1, mult, no, nu):
         error = np.linalg.norm(c1_a + c1_b)
     return error
 
-
 def get_index_arrays(no, nu, nacto, nactu):
 
     nacto = min(no, nacto)

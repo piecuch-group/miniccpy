@@ -256,9 +256,9 @@ def print_amplitudes(t1, t2, print_threshold, rhf=False):
                 n += 1
         print("          I J -> A B")
         for a in range(nu):
-            for b in range(a, nu):
+            for b in range(nu):
                 for i in range(no):
-                    for j in range(i, no):
+                    for j in range(no):
                         if abs(t2[a, b, i, j]) <= print_threshold: continue
                         print(f"     [{n}]  {i + 1} {j + 1} -> {a + no + 1} {b + no + 1}    {t2[a, b, i, j]}") 
                         n += 1
