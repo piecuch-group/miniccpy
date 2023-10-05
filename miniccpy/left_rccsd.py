@@ -17,11 +17,11 @@ def LH_singles(l1, l2, t2, H1, H2, o, v):
     # [2*h(EIMA) - h(EIAM)]*l(EM)
     LH += 2.0 * np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
     LH -= np.einsum("eiam,em->ai", H2[v, o, v, o], l1, optimize=True)
-
+    #
     LH += 0.5 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2s, optimize=True)
     LH -= 0.5 * np.einsum("efna,efin->ai", H2[v, v, o, v], l2s, optimize=True)
     LH += np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
-    # -[2*h(IFMN) - h(IFNM)]*l(AFMN) + h(IFMN)*l(AFNM)
+    #
     LH -= 0.5 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
     LH += 0.5 * np.einsum("fimn,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
     LH -= np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)

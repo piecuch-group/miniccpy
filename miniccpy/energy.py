@@ -58,9 +58,9 @@ def calc_r0(r1, r2, H1, H2, omega, o, v):
 def calc_r0_rhf(r1, r2, H1, H2, omega, o, v):
     """Calculate the zero-body component of the EOM excitation operator,
     r0 = 1/omega * < 0 | (H(CC) * R)_C | 0 >, where H(CC) = [H_N*exp(T)]_C"""
+    v_ss = 2.0 * H2[o, o, v, v] - np.transpose(H2[o, o, v, v], (0, 1, 3, 2))
     r0 = 2.0 * np.einsum("me,em->", H1[o, v], r1)
-    r0 += 2.0 * np.einsum("mnef,efmn->", H2[o, o, v, v], r2)
-    r0 -= np.einsum("mnfe,efmn->", H2[o, o, v, v], r2)
+    r0 += np.einsum("mnef,efmn->", v_ss, r2)
     return r0/omega
 
 def calc_rel(r0, r1, r2):
