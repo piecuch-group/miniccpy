@@ -63,7 +63,7 @@ def LH_doubles(l1, l2, t2, H1, H2, o, v):
     return LH
 
 
-def kernel(H1, H2, T, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
+def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
     """Solve the left-CCSD system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the L amplitudes are taken as T."""
 

@@ -10,37 +10,36 @@ def LH_singles(l1, l2, t2, H1, H2, o, v):
     # symmetric quantities
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
     l2s = l2 - np.transpose(l2, (0, 1, 3, 2))
-    #
+    # h(EA)*l(EI)
     LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
+    # -h(IM)*l(AM)
     LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
-    LH += np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
+    # [2*h(EIMA) - h(EIAM)]*l(EM)
+    LH += 2.0 * np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
     LH -= np.einsum("eiam,em->ai", H2[v, o, v, o], l1, optimize=True)
-    LH += np.einsum("ieam,em->ai", H2[o, v, v, o], l1, optimize=True)
+
     LH += 0.5 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2s, optimize=True)
     LH -= 0.5 * np.einsum("efna,efin->ai", H2[v, v, o, v], l2s, optimize=True)
-    LH += np.einsum("efan,efin->ai", H2[v, v, v, o], l2, optimize=True)
+    LH += np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
+    # -[2*h(IFMN) - h(IFNM)]*l(AFMN) + h(IFMN)*l(AFNM)
     LH -= 0.5 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
     LH += 0.5 * np.einsum("fimn,afmn->ai", H2[v, o, o, o], l2s, optimize=True)
-    LH -= np.einsum("ifmn,afmn->ai", H2[o, v, o, o], l2, optimize=True)
+    LH -= np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
 
-    I1 = 0.25 * np.einsum("efmn,fgnm->ge", l2s, t2s, optimize=True)
-    I2 = -0.25 * np.einsum("efmn,egnm->gf", l2s, t2s, optimize=True)
-    I3 = -0.25 * np.einsum("efmo,efno->mn", l2s, t2s, optimize=True)
-    I4 = 0.25 * np.einsum("efmo,efnm->on", l2s, t2s, optimize=True)
-
+    I1 = (
+            0.25 * np.einsum("efmn,fgnm->ge", l2s, t2s, optimize=True)
+           -0.25 * np.einsum("efmn,egnm->gf", l2s, t2s, optimize=True)
+    )
+    I2 = (
+            -0.25 * np.einsum("efmo,efno->mn", l2s, t2s, optimize=True)
+            +0.25 * np.einsum("efmo,efnm->on", l2s, t2s, optimize=True)
+    )
     LH += np.einsum("ge,eiga->ai", I1, H2[v, o, v, v], optimize=True)
     LH -= np.einsum("ge,eiag->ai", I1, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("gf,figa->ai", I2, H2[v, o, v, v], optimize=True)
-    LH -= np.einsum("gf,fiag->ai", I2, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("mn,nima->ai", I3, H2[o, o, o, v], optimize=True)
-    LH -= np.einsum("mn,inma->ai", I3, H2[o, o, o, v], optimize=True)
-    LH += np.einsum("on,nioa->ai", I4, H2[o, o, o, v], optimize=True)
-    LH -= np.einsum("on,inoa->ai", I4, H2[o, o, o, v], optimize=True)
-
-    LH += np.einsum("fa,maef->em", I1, H2[o, v, v, v], optimize=True)
-    LH += np.einsum("fb,mbef->em", I2, H2[o, v, v, v], optimize=True)
-    LH += np.einsum("in,mnei->em", I3, H2[o, o, v, o], optimize=True)
-    LH += np.einsum("jn,mnej->em", I4, H2[o, o, v, o], optimize=True)
+    LH += np.einsum("fa,amfe->em", I1, H2[v, o, v, v], optimize=True)
+    LH += np.einsum("mn,nima->ai", I2, H2[o, o, o, v], optimize=True)
+    LH -= np.einsum("mn,inma->ai", I2, H2[o, o, o, v], optimize=True)
+    LH += np.einsum("in,nmie->em", I2, H2[o, o, o, v], optimize=True)
 
     I1 = -np.einsum("abij,abin->jn", l2, t2, optimize=True)
     I2 = np.einsum("abij,afij->fb", l2, t2, optimize=True)
@@ -116,7 +115,7 @@ def LH_doubles(l1, l2, t2, H1, H2, o, v):
     LH += H2[o, o, v, v].transpose(2, 3, 0, 1)
     return LH
 
-def kernel(H1, H2, T, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
+def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
     """Solve the left-CCSD system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the L amplitudes are taken as T."""
 

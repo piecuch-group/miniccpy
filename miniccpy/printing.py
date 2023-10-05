@@ -54,6 +54,54 @@ def print_system_information(meanfield, nfrozen, hf_energy):
     print(WHITESPACE, "Reference Energy =", hf_energy)
     print("")
 
+def print_custom_system_information_rhf(fock, nelectrons, nfrozen, hf_energy):
+    """Print a nice output of the molecular system information."""
+
+    norbitals = fock.shape[1]
+    mo_energy = np.diag(fock)
+    orbital_symmetries = ["C1"] * norbitals
+    mo_occ = np.zeros(norbitals)
+    mo_occ[:int(nelectrons / 2)] = 2.0
+
+    print(WHITESPACE, "System Information:")
+    print(WHITESPACE, "----------------------------------------------------")
+    print(WHITESPACE, "  Number of correlated electrons =", nelectrons - 2 * nfrozen)
+    print(WHITESPACE, "  Number of correlated orbitals =", 2 * norbitals - 2 * nfrozen)
+    print(WHITESPACE, "  Number of frozen orbitals =", 2 * nfrozen)
+    print(
+            WHITESPACE,
+            "  Number of occupied orbitals =",
+            nelectrons - 2 * nfrozen,
+    )
+    print(
+            WHITESPACE,
+            "  Number of unoccupied orbitals =",
+            2 * norbitals - nelectrons ,
+    )
+    print(
+            WHITESPACE, "  Spin multiplicity of reference =", 1
+    )
+    print("")
+
+    HEADER_FMT = "{:>10} {:>20} {:>13} {:>13}"
+    MO_FMT = "{:>10} {:>20.6f} {:>13} {:>13.1f}"
+
+    header = HEADER_FMT.format("MO #", "Energy (a.u.)", "Symmetry", "Occupation")
+    print(header)
+    print(WHITESPACE + len(header) * "-")
+    for i in range(norbitals):
+        print(
+                MO_FMT.format(
+                    i + 1,
+                    mo_energy[i],
+                    orbital_symmetries[i],
+                    mo_occ[i],
+                )
+        )
+    print("")
+    print(WHITESPACE, "Reference Energy =", hf_energy)
+    print("")
+
 def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
     """Print a nice output of the custom MO-defined molecular system."""
 

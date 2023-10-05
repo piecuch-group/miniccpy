@@ -11,10 +11,10 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, maxit=200, unit="Angstrom", 
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='rccsd', maxit=80)
 H1, H2 = get_hbar(T, fock, g, o, v, method="rccsd")
-L = run_leftcc_calc(H1, H2, T, o, v, method="left_rccsd")
+L = run_leftcc_calc(T, H1, H2, o, v, method="left_rccsd")
 
-#print("Norm of L1 = ", np.linalg.norm(L[0].flatten()))
-#print("Norm of L2 = ", np.linalg.norm(L[1].flatten()))
+print("Norm of L1 = ", np.linalg.norm(L[0].flatten()), "Expected = ", 0.0795662869743923)
+print("Norm of L2 = ", np.linalg.norm(L[1].flatten()), "Expected = ", 0.39024663494581835)
 
 #print("H1")
 #print("----")

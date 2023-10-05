@@ -10,20 +10,24 @@ modules = glob.glob(join(dirname(__file__), "*.py"))
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
 
-def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0):
+def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
     return the necessary objects, including MO integrals and correlated
     slicing arrays for the CC calculation"""
     from miniccpy.integrals import get_integrals_from_gamess
-    from miniccpy.printing import print_custom_system_information
+    from miniccpy.printing import print_custom_system_information, print_custom_system_information_rhf
 
     # 1-, 2-electron spinorbital integrals in physics notation
-    e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_gamess(fcidump, nelectron, norbitals)
+    e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_gamess(fcidump, nelectron, norbitals, rhf=rhf)
 
-    corr_occ = slice(2 * nfrozen, nelectron)
-    corr_unocc = slice(nelectron, 2 * norbitals)
-
-    print_custom_system_information(fock, nelectron, nfrozen, e_hf)
+    if rhf:
+        corr_occ = slice(nfrozen, int(nelectron / 2))
+        corr_unocc = slice(int(nelectron / 2), norbitals)
+        print_custom_system_information_rhf(fock, nelectron, nfrozen, e_hf)
+    else:
+        corr_occ = slice(2 * nfrozen, nelectron)
+        corr_unocc = slice(nelectron, 2 * norbitals)
+        print_custom_system_information(fock, nelectron, nfrozen, e_hf)
 
     return fock, e2int, e_hf, corr_occ, corr_unocc
 
@@ -142,7 +146,7 @@ def run_cc_calc(fock, g, o, v, method,
 
     return T, e_corr
 
-def run_leftcc_calc(H1, H2, T, o, v, method, 
+def run_leftcc_calc(T, H1, H2, o, v, method, 
                 maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False):
     """Run the ground-state left-CC calculation specified by `method`."""
 
@@ -161,7 +165,7 @@ def run_leftcc_calc(H1, H2, T, o, v, method,
         diis_size = 1000 
 
     tic = time.time()
-    L, omega = calculation(H1, H2, T, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    L, omega = calculation(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)

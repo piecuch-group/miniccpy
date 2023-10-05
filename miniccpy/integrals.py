@@ -86,7 +86,7 @@ def get_integrals_from_pyscf_uhf(meanfield):
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
 
-def get_integrals_from_gamess(fcidump, nelectron, norbitals):
+def get_integrals_from_gamess(fcidump, nelectron, norbitals, rhf=False):
     """Obtain the molecular orbital integrals from GAMESS FCIDUMP file."""
 
     e1int = np.zeros((norbitals, norbitals))
@@ -129,15 +129,22 @@ def get_integrals_from_gamess(fcidump, nelectron, norbitals):
     # Convert from chemist to physics notation
     e2int = e2int.transpose(0, 2, 1, 3)
 
-    z, g = spatial_to_spinorb(e1int, e2int)
-    g -= np.transpose(g, (0, 1, 3, 2))
+    if rhf:
+        occ = slice(0, int(nelectron / 2))
+        z = e1int
+        g = e2int
+        fock = get_fock_rhf(e1int, e2int, occ)
+        e_hf = rhf_energy(e1int, e2int, occ)
+    else:
+        z, g = spatial_to_spinorb(e1int, e2int)
+        g -= np.transpose(g, (0, 1, 3, 2))
 
-    occ = slice(0, nelectron)
-    fock = get_fock(z, g, occ)
-    e_hf = hf_energy(z, g, occ)
-    e_hf_test = hf_energy_from_fock(fock, g, occ)
+        occ = slice(0, nelectron)
+        fock = get_fock(z, g, occ)
+        e_hf = hf_energy(z, g, occ)
+        e_hf_test = hf_energy_from_fock(fock, g, occ)
 
-    assert( abs(e_hf - e_hf_test) < 1.0e-09 )
+        assert( abs(e_hf - e_hf_test) < 1.0e-09 )
 
     return z, g, fock, e_hf + nuclear_repulsion, nuclear_repulsion
 
