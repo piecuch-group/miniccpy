@@ -104,6 +104,29 @@ def cis_guess(f, g, o, v, nroot, mult=-1):
 
     return R_guess, omega_guess
 
+def rcis_guess(f, g, o, v, nroot, mult=1):
+    """Obtain the lowest `nroot` roots of the RCIS Hamiltonian
+    to serve as the initial guesses for the RHF-EOMCC calculations."""
+
+    nu, no = f[v, o].shape
+    # print dimensions of initial guess procedure
+    print("   RCIS initial guess")
+    print("   Multiplicity = ", mult)
+    print("   Number of roots = ", nroot)
+    print("   Dimension of eigenvalue problem = ", no*nu)
+    print("   -----------------------------------")
+
+    H = build_rcis_hamiltonian(f, g, o, v)
+    omega, C = np.linalg.eig(H)
+    idx = np.argsort(omega)
+    omega = omega[idx]
+    C = np.real(C[:, idx])
+    # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+    R_guess, _ = np.linalg.qr(C[:, :nroot])
+    omega_guess = omega[:nroot]
+
+    return R_guess, omega_guess
+
 def deacis_guess(f, g, o, v, nroot, nactu):
     """Obtain the lowest `nroot` roots of the 2p Hamiltonian
     to serve as the initial guesses for the DEA-EOMCC calculations."""
@@ -406,6 +429,54 @@ def build_cis_hamiltonian(f, g, o, v):
                     ct2 += 1
             ct1 += 1
 
+    return H
+
+def build_rcis_hamiltonian(f, g, o, v):
+    """ Construct the RCIS Hamiltonian.
+    """
+
+    nu, no = f[v, o].shape
+    n1 = no * nu
+
+    idx = np.zeros((nu, no), dtype=np.int32)
+    kout = 1
+    for a in range(nu):
+        for i in range(no):
+            idx[a, i] = kout
+            kout += 1
+
+    H = np.zeros((n1, n1))
+    for a in range(nu):
+        for i in range(no):
+            idet = idx[a, i]
+            if idet == 0: continue
+            I = abs(idet) - 1
+            # -h1a(mi) * r1a(am)
+            for m in range(no):
+                jdet = idx[a, m]
+                if jdet == 0: continue
+                J = abs(jdet) - 1
+                H[I, J] -= f[o, o][m, i]
+            # h1a(ae) * r1a(ei)
+            for e in range(nu):
+                jdet = idx[e, i]
+                if jdet == 0: continue
+                J = abs(jdet) - 1
+                H[I, J] += f[v, v][a, e]
+            # h2a(amie) * r1a(em)
+            for e in range(nu):
+                for m in range(no):
+                    jdet = idx[e, m]
+                    if jdet == 0: continue
+                    J = abs(jdet) - 1
+                    H[I, J] += g[v, o, o, v][a, m, i, e] - g[v, o, v, o][a, m, e, i]
+            # h2b(amie) * r1b(em)
+            for e in range(nu):
+                for m in range(no):
+                    jdet = idx[e, m]
+                    if jdet == 0: continue
+                    J = abs(jdet) - 1
+                    H[I, J] += g[v, o, o, v][a, m, i, e]
     return H
 
 def build_2p_hamiltonian(f, g, o, v, nactu):

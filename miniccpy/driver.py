@@ -221,8 +221,8 @@ def get_hbar(T, fock, g, o, v, method):
 
 def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.025, mult=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess
-    from miniccpy.printing import print_cis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector
+    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess
+    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector
 
     no, nu = H1[o, v].shape
 
@@ -233,6 +233,9 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
     elif method == "cis":
         nroot = min(nroot, no * nu)
         R0, omega0 = cis_guess(H1, H2, o, v, nroot, mult)
+    elif method == "rcis":
+        nroot = min(nroot, no * nu)
+        R0, omega0 = rcis_guess(H1, H2, o, v, nroot, mult=1)
     elif method == "eacis":
         nroot = min(nroot, nu)
         R0, omega0 = eacis_guess(H1, H2, o, v, nroot)
@@ -254,6 +257,8 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
         print("    Largest Amplitudes:")
         if method == "cis":
             print_cis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
+        elif method == "rcis":
+            print_rcis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
         elif method == "cisd":
             print_cisd_vector(R0[:no*nu, i].reshape(nu, no), R0[no*nu:, i].reshape(nu, nu, no, no), print_threshold=print_threshold)
         elif method == "eacis":

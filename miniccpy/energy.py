@@ -55,11 +55,30 @@ def calc_r0(r1, r2, H1, H2, omega, o, v):
 
     return r0/omega
 
+def calc_r0_rhf(r1, r2, H1, H2, omega, o, v):
+    """Calculate the zero-body component of the EOM excitation operator,
+    r0 = 1/omega * < 0 | (H(CC) * R)_C | 0 >, where H(CC) = [H_N*exp(T)]_C"""
+    r0 = 2.0 * np.einsum("me,em->", H1[o, v], r1)
+    r0 += 2.0 * np.einsum("mnef,efmn->", H2[o, o, v, v], r2)
+    r0 -= np.einsum("mnfe,efmn->", H2[o, o, v, v], r2)
+    return r0/omega
+
 def calc_rel(r0, r1, r2):
     """Calculate the relative excitation level (REL)"""
     rel_0 = r0**2
     rel_1 = np.einsum("ai,ai->", r1, r1, optimize=True)
     rel_2 = 0.25 * np.einsum("abij,abij->", r2, r2, optimize=True)
+    rel = (rel_1 + 2.0 * rel_2)/(rel_0 + rel_1 + rel_2)
+    return rel
+
+def calc_rel_rhf(r0, r1, r2):
+    """Calculate the relative excitation level (REL) for RHF EOMCC."""
+    rel_0 = r0**2
+    rel_1 = 2.0 * np.einsum("ai,ai->", r1, r1, optimize=True)
+    rel_2 = (
+                2.0 * np.einsum("abij,abij->", r2, r2, optimize=True)
+                    - np.einsum("abij,abji->", r2, r2, optimize=True)
+    )
     rel = (rel_1 + 2.0 * rel_2)/(rel_0 + rel_1 + rel_2)
     return rel
 

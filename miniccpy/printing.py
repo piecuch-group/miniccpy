@@ -159,6 +159,16 @@ def print_cis_vector(r, print_threshold):
                 n += 1
     return
 
+def print_rcis_vector(r, print_threshold):
+    nu, no = r.shape
+    n = 1
+    for a in range(nu):
+        for i in range(no):
+            if abs(r[a, i]) > print_threshold:
+                print(f"     [{n}]  {i + 1} -> {a + no + 1}    {r[a, i]}") 
+                n += 1
+    return
+
 def print_cisd_vector(r1, r2, print_threshold):
     nu, no = r1.shape
     # Zero out the non-unique R amplitudes related by permutational symmetry
