@@ -58,6 +58,7 @@ def build_hbar_rccsd(T, f, g, o, v):
     I_oovo = g[o, o, v, o] + 0.5 * Q1
     H2[o, o, v, o] = I_oovo + 0.5 * Q1
 
+
     H2[v, v, v, v] = g[v, v, v, v] + (
                 - np.einsum("mbef,am->abef", I_ovvv, t1, optimize=True)
                 - np.einsum("amef,bm->abef", I_vovv, t1, optimize=True)
@@ -179,27 +180,18 @@ def get_rccs_intermediates(t1, f, g, o, v):
     )
     # 2-body intermediates
     H2[o, o, o, v] = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
-    H2[o, o, v, o] = np.einsum("nmef,fi->nmei", g[o, o, v, v], t1, optimize=True)
     H2[o, o, o, o] = g[o, o, o, o] + (
-          np.einsum("mnej,ei->mnij", g[o, o, v, o] + 0.5 * H2[o, o, v, o], t1, optimize=True)
+          np.einsum("nmje,ei->mnij", g[o, o, o, v] + 0.5 * H2[o, o, o, v], t1, optimize=True) 
         + np.einsum("mnie,ej->mnij", g[o, o, o, v] + 0.5 * H2[o, o, o, v], t1, optimize=True)
     )
     H2[v, o, v, v] = -np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)
-    H2[o, v, v, v] = -np.einsum("mnef,an->maef", g[o, o, v, v], t1, optimize=True)
+
     H2[v, o, o, v] = g[v, o, o, v] + (
           np.einsum("amfe,fi->amie", g[v, o, v, v] + 0.5 * H2[v, o, v, v], t1, optimize=True)
         - np.einsum("nmie,an->amie", g[o, o, o, v] + 0.5 * H2[o, o, o, v], t1, optimize=True)
     )
-    H2[o, v, v, o] = g[o, v, v, o] + (
-          np.einsum("maef,fi->maei", g[o, v, v, v] + 0.5 * H2[o, v, v, v], t1, optimize=True)
-        - np.einsum("mnei,an->maei", g[o, o, v, o] + 0.5 * H2[o, o, v, o], t1, optimize=True)
-    )
-    H2[o, v, o, v] = g[o, v, o, v] + (
-          np.einsum("mafe,fi->maie", g[o, v, v, v] + 0.5 * H2[o, v, v, v], t1, optimize=True)
-        - np.einsum("mnie,an->maie", g[o, o, o, v] + 0.5 * H2[o, o, o, v], t1, optimize=True)
-    )
     H2[v, o, v, o] = g[v, o, v, o] - (
-          np.einsum("nmei,an->amei", g[o, o, v, o] + 0.5 * H2[o, o, v, o], t1, optimize=True)
+          np.einsum("mnie,an->amei", g[o, o, o, v] + 0.5 * H2[o, o, o, v], t1, optimize=True) 
         - np.einsum("amef,fi->amei", g[v, o, v, v] + 0.5 * H2[v, o, v, v], t1, optimize=True)
     )
 
@@ -207,7 +199,7 @@ def get_rccs_intermediates(t1, f, g, o, v):
           np.einsum("mnif,fj->mnij", g[o, o, o, v], t1, optimize=True)
         + np.einsum("mnej,ei->mnij", g[o, o, v, o], t1, optimize=True)
     )
-    I_ovvo = g[o, v, v, o] + np.einsum("mbef,fj->mbej", g[o, v, v, v], t1, optimize=True)
+    I_ovvo = g[o, v, v, o] + np.einsum("bmfe,fj->mbej", g[v, o, v, v], t1, optimize=True)
     I_voov = np.einsum("amef,ei->amif", g[v, o, v, v] + H2[v, o, v, v], t1, optimize=True)
 
     H2[o, v, o, o] = g[o, v, o, o] + (
@@ -215,8 +207,7 @@ def get_rccs_intermediates(t1, f, g, o, v):
         - np.einsum("mnij,bn->mbij", I_oooo, t1, optimize=True)
     )
     H2[v, o, o, o] = g[v, o, o, o] + np.einsum("amif,fj->amij", g[v, o, o, v] + I_voov, t1, optimize=True)
-    H2[v, v, v, o] = g[v, v, v, o] - np.einsum("anej,bn->abej", g[v, o, v, o], t1, optimize=True)
-    H2[v, v, o, v] = g[v, v, o, v] - np.einsum("mbie,am->abie", g[o, v, o, v], t1, optimize=True)
+    H2[v, v, o, v] = g[v, v, o, v] - np.einsum("bmei,am->abie", g[v, o, v, o], t1, optimize=True)
     return H1, H2
 
 def get_ccs_intermediates(t1, f, g, o, v):

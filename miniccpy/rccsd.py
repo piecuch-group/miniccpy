@@ -8,8 +8,6 @@ def singles_residual(t1, t2, f, g, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
         X[a, i] = < ia | (H_N exp(T1+T2))_C | 0 >
     """
-    # symmetric quantities
-    t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
     # intermediates
     I_ov = (
              f[o, v]
@@ -32,16 +30,14 @@ def singles_residual(t1, t2, f, g, o, v):
 
     singles_res = -np.einsum("mi,am->ai", I_oo, t1, optimize=True)
     singles_res += np.einsum("ae,ei->ai", I_vv, t1, optimize=True)
-    singles_res += 2.0 * np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
-    singles_res -= np.einsum("anfi,fn->ai", g[v, o, v, o], t1, optimize=True)
     singles_res += 2.0 * np.einsum("me,aeim->ai", I_ov, t2, optimize=True)
     singles_res -= np.einsum("me,aemi->ai", I_ov, t2, optimize=True)
-    singles_res -= 0.5 * np.einsum("mnif,afmn->ai", I_ooov, t2s, optimize=True)
-    singles_res += 0.5 * np.einsum("nmif,afmn->ai", I_ooov, t2s, optimize=True)
-    singles_res -= np.einsum("mnif,afmn->ai", I_ooov, t2, optimize=True)
-    singles_res += 0.5 * np.einsum("anef,efin->ai", I_vovv, t2s, optimize=True)
-    singles_res -= 0.5 * np.einsum("anfe,efin->ai", I_vovv, t2s, optimize=True)
-    singles_res += np.einsum("anef,efin->ai", I_vovv, t2, optimize=True)
+    singles_res += 2.0 * np.einsum("anif,fn->ai", g[v, o, o, v], t1, optimize=True)
+    singles_res -= np.einsum("anfi,fn->ai", g[v, o, v, o], t1, optimize=True)
+    singles_res -= 2.0 * np.einsum("mnif,afmn->ai", I_ooov, t2, optimize=True)
+    singles_res += np.einsum("nmif,afmn->ai", I_ooov, t2, optimize=True)
+    singles_res += 2.0 * np.einsum("anef,efin->ai", I_vovv, t2, optimize=True)
+    singles_res -= np.einsum("anfe,efin->ai", I_vovv, t2, optimize=True)
     singles_res += f[v, o]
     return singles_res
 
@@ -49,54 +45,52 @@ def doubles_residual(t1, t2, f, g, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
-
     H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
-    # symmetric quantities
-    t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-    gs_oovv = g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
     # intermediates
     I_vv = (
         H1[v, v]
-        - 0.5 * np.einsum("mnef,afmn->ae", gs_oovv, t2s, optimize=True)
-        - np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
+        - 2.0 * np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
+        + np.einsum("mnef,afnm->ae", g[o, o, v, v], t2, optimize=True)
     )
     I_oo = (
         H1[o, o]
-        + 0.5 * np.einsum("mnef,efin->mi", gs_oovv, t2s, optimize=True)
-        + np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
+        + 2.0 * np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnef,efni->mi", g[o, o, v, v], t2, optimize=True)
     )
     I_voov = (
         H2[v, o, o, v]
-        + np.einsum("mnef,aeim->anif", g[o, o, v, v], t2s, optimize=True)
-        + np.einsum("mnef,aeim->anif", gs_oovv, t2, optimize=True)
+        + 2.0 * np.einsum("mnef,aeim->anif", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnef,aemi->anif", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnfe,aeim->anif", g[o, o, v, v], t2, optimize=True)
     )
     I_oooo = H2[o, o, o, o] + np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True)
     I_vovo = H2[v, o, v, o] - np.einsum("mnef,afmj->anej", g[o, o, v, v], t2, optimize=True)
-    I_ovoo = H2[o, v, o, o] + np.einsum("maef,efij->maij", g[o, v, v, v] + 0.5 * H2[o, v, v, v], t2, optimize=True)
+    I_ovoo = H2[o, v, o, o] + np.einsum("amfe,efij->maij", g[v, o, v, v] + 0.5 * H2[v, o, v, v], t2, optimize=True)
     I_vooo = H2[v, o, o, o] + np.einsum("amef,efij->amij", g[v, o, v, v] + 0.5 * H2[v, o, v, v], t2, optimize=True)
-
     tau = t2 + np.einsum('ai,bj->abij', t1, t1, optimize=True)
-
-    doubles_res = -np.einsum("mbij,am->abij", I_ovoo, t1, optimize=True)
-    doubles_res -= np.einsum("amij,bm->abij", I_vooo, t1, optimize=True)
-    doubles_res += np.einsum("abej,ei->abij", H2[v, v, v, o], t1, optimize=True)
-    doubles_res += np.einsum("abie,ej->abij", H2[v, v, o, v], t1, optimize=True)
+    # collect terms that can be symmetrized
+    doubles_res = np.einsum("baje,ei->abij", H2[v, v, o, v], t1, optimize=True)
     doubles_res += np.einsum("ae,ebij->abij", I_vv, t2, optimize=True)
-    doubles_res += np.einsum("be,aeij->abij", I_vv, t2, optimize=True)
     doubles_res -= np.einsum("mi,abmj->abij", I_oo, t2, optimize=True)
-    doubles_res -= np.einsum("mj,abim->abij", I_oo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2, optimize=True)
-    doubles_res -= np.einsum("amei,ebmj->abij", I_vovo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2s, optimize=True)
-    doubles_res += np.einsum("mbej,aeim->abij", H2[o, v, v, o], t2s, optimize=True)
-    doubles_res += np.einsum("bmje,aeim->abij", H2[v, o, o, v], t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("abef,efij->abij", g[v, v, v, v], tau, optimize=True)
+    doubles_res += 0.5 * g[v, v, o, o]
+    doubles_res += doubles_res.transpose(1, 0, 3, 2)
+    # remaining terms
+    # can be made into (ij)(ab) pairs
+    doubles_res -= np.einsum("mbij,am->abij", I_ovoo, t1, optimize=True)
+    doubles_res -= np.einsum("amij,bm->abij", I_vooo, t1, optimize=True)
+    # can be made into (ij)(ab) pairs
+    doubles_res += 2.0 * np.einsum("amie,ebmj->abij", I_voov, t2, optimize=True)
+    doubles_res -= np.einsum("amie,ebjm->abij", I_voov, t2, optimize=True)
+    doubles_res += 2.0 * np.einsum("bmje,aeim->abij", H2[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("bmje,aemi->abij", H2[v, o, o, v], t2, optimize=True)
+    # can be made into (ij)(ab) pairs
     doubles_res -= np.einsum("bmej,aeim->abij", H2[v, o, v, o], t2, optimize=True)
-    doubles_res -= np.einsum("mbie,aemj->abij", H2[o, v, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("amei,bejm->abij", I_vovo, t2, optimize=True)
+    # can be made into (ij)(ab) pairs
+    doubles_res -= np.einsum("bmei,aemj->abij", H2[v, o, v, o], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", I_vovo, t2, optimize=True)
-    doubles_res += np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
-    doubles_res += np.einsum("abef,efij->abij", g[v, v, v, v], tau, optimize=True)
-    doubles_res += g[v, v, o, o]
-
     return doubles_res
 
 
