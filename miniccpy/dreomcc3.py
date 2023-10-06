@@ -101,15 +101,12 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=
     if do_diis:
         diis_engine.cleanup()
 
+    # Save the final converged root in an excitation tuple
+    R = (R[:n1].reshape(nunocc, nocc), R[n1:].reshape(nunocc, nunocc, nocc, nocc))
     # Calculate r0 for the root
-    r0 = calc_r0(R[:n1].reshape(nunocc, nocc),
-                 R[n1:].reshape(nunocc, nunocc, nocc, nocc),
-                 H1, H2, omega, o, v)
+    r0 = calc_r0(R[0], R[1], H1, H2, omega, o, v)
     # Compute relative excitation level diagnostic
-    rel = calc_rel(r0,
-                   R[:n1].reshape(nunocc, nocc),
-                   R[n1:].reshape(nunocc, nunocc, nocc, nocc))
-
+    rel = calc_rel(r0, R[0], R[1])
     return R, omega, r0, rel
 
 def update(r1, r2, omega, e_ai, e_abij):

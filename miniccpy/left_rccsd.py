@@ -19,7 +19,7 @@ def LT_intermediates(l2, t2):
 
 def LH_singles(l1, l2, t2, H1, H2, I, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
-        X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
+        X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | ia >
     """
     LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
     LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
@@ -38,7 +38,7 @@ def LH_singles(l1, l2, t2, H1, H2, I, o, v):
 
 def LH_doubles(l1, l2, t2, H1, H2, I, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
-        X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
+        X[a, b, i, j] = < 0 | (1 + L2 + L2) * (H_N exp(T1+T2))_C | ijab >
     """
     LH = -np.einsum("ijmb,am->abij", H2[o, o, o, v], l1, optimize=True)
     LH += np.einsum("ejab,ei->abij", H2[v, o, v, v], l1, optimize=True)

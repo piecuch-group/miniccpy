@@ -101,11 +101,12 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     else:
         print("DEA-EOMCC(3p-1h) iterations did not converge")
 
+    # Save the final converged root in an excitation tuple
+    R = (R[:n1].reshape(nunocc, nunocc), R[n1:].reshape(nunocc, nunocc, nunocc, nocc))
     # r0 for a root in DEA is 0 by definition
     r0 = 0.0
     # Compute relative excitation level diagnostic
-    rel = calc_rel_dea(R[:n1].reshape(nunocc, nunocc),
-                       R[n1:].reshape(nunocc, nunocc, nunocc, nocc))
+    rel = calc_rel_dea(R[0], R[1])
     return R, omega, r0, rel
 
 def update(r1, r2, omega, e_ab, e_abck):

@@ -7,31 +7,16 @@ def doubles_residual(t2, f, g, o, v):
     """Compute the projection of the CCD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | H_N + (H_N * T2)_C | 0 >
     """
-    t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
-
     doubles_res = np.einsum("ae,ebij->abij", f[v, v], t2, optimize=True)
-    doubles_res += np.einsum("be,aeij->abij", f[v, v], t2, optimize=True)
     doubles_res -= np.einsum("mi,abmj->abij", f[o, o], t2, optimize=True)
-    doubles_res -= np.einsum("mj,abim->abij", f[o, o], t2, optimize=True)
-    doubles_res += np.einsum("mnij,abmn->abij", g[o, o, o, o], t2, optimize=True)
-    doubles_res += np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", g[v, o, o, v], t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("mnij,abmn->abij", g[o, o, o, o], t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
+    doubles_res += 2.0 * np.einsum("amie,ebmj->abij", g[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("amie,ebjm->abij", g[v, o, o, v], t2, optimize=True)
     doubles_res -= np.einsum("amei,ebmj->abij", g[v, o, v, o], t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", g[v, o, o, v], t2s, optimize=True)
-    doubles_res += np.einsum("mbej,aeim->abij", g[o, v, v, o], t2s, optimize=True)
-    doubles_res += np.einsum("bmje,aeim->abij", g[v, o, o, v], t2, optimize=True)
-    doubles_res -= np.einsum("bmej,aeim->abij", g[v, o, v, o], t2, optimize=True)
-    doubles_res -= np.einsum("mbie,aemj->abij", g[o, v, o, v], t2, optimize=True)
-    doubles_res -= np.einsum("amej,ebim->abij", g[v, o, v, o], t2, optimize=True)
-    doubles_res += g[v, v, o, o]
-    ## By hand factorization of voov-type terms
-    #doubles_res = 2.0 * np.einsum("amie,ebmj->abij", g[v, o, o, v], t2, optimize=True)
-    #doubles_res -= np.einsum("amei,ebmj->abij", g[v, o, v, o], t2, optimize=True)
-    #doubles_res -= np.einsum("amie,ebjm->abij", g[v, o, o, v], t2, optimize=True)
-    #doubles_res -= np.einsum("mbie,aemj->abij", g[o, v, o, v], t2, optimize=True)
-    #doubles_res += np.transpose(doubles_res, (1, 0, 3, 2))
-    ##
-
+    doubles_res -= np.einsum("bmei,aemj->abij", g[v, o, v, o], t2, optimize=True)
+    doubles_res += 0.5 * g[v, v, o, o]
+    doubles_res += doubles_res.transpose(1, 0, 3, 2)
     return doubles_res
 
 def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi):

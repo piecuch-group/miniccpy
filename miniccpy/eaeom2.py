@@ -101,10 +101,12 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     else:
         print("EA-EOMCC(2p-1h) iterations did not converge")
 
-    # Set the r0 and rel trivially to 0
+    # Save the final converged root in an excitation tuple
+    R = (R[:n1].reshape(nunocc), R[n1:].reshape(nunocc, nunocc, nocc))
+    # Set the r0 to 0
     r0 = 0.0
-    rel = calc_rel_ea(R[:n1].reshape(nunocc),
-                      R[n1:].reshape(nunocc, nunocc, nocc))
+    # Compute the REL metric
+    rel = calc_rel_ea(R[0], R[1])
     return R, omega, r0, rel
 
 def update(r1, r2, omega, e_a, e_abj):

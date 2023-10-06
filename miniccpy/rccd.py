@@ -12,37 +12,39 @@ def doubles_residual(t2, f, g, o, v):
     # intermediates
     I_vv = (
         f[v, v]
-        - 0.5 * np.einsum("mnef,afmn->ae", gs_oovv, t2s, optimize=True)
-        - np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
+        - 2.0 * np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
+        + np.einsum("mnef,afnm->ae", g[o, o, v, v], t2, optimize=True)
     )
     I_oo = (
         f[o, o]
-        + 0.5 * np.einsum("mnef,efin->mi", gs_oovv, t2s, optimize=True)
-        + np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
+        + 2.0 * np.einsum("mnef,efin->mi", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnef,efni->mi", g[o, o, v, v], t2, optimize=True)
     )
     I_voov = (
         g[v, o, o, v]
-        + np.einsum("mnef,aeim->anif", g[o, o, v, v], t2s, optimize=True)
-        + np.einsum("mnef,aeim->anif", gs_oovv, t2, optimize=True)
+        + 2.0 * np.einsum("mnef,aeim->anif", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnef,aemi->anif", g[o, o, v, v], t2, optimize=True)
+        - np.einsum("mnfe,aeim->anif", g[o, o, v, v], t2, optimize=True)
     )
     I_oooo = g[o, o, o, o] + np.einsum("mnef,efij->mnij", g[o, o, v, v], t2, optimize=True)
     I_vovo = g[v, o, v, o] - np.einsum("mnef,afmj->anej", g[o, o, v, v], t2, optimize=True)
 
     doubles_res = np.einsum("ae,ebij->abij", I_vv, t2, optimize=True)
-    doubles_res += np.einsum("be,aeij->abij", I_vv, t2, optimize=True)
     doubles_res -= np.einsum("mi,abmj->abij", I_oo, t2, optimize=True)
-    doubles_res -= np.einsum("mj,abim->abij", I_oo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
+    doubles_res += 0.5 * np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
+    doubles_res += 0.5 * g[v, v, o, o]
+    doubles_res += doubles_res.transpose(1, 0, 3, 2)
+
+    doubles_res += 2.0 * np.einsum("amie,ebmj->abij", I_voov, t2, optimize=True)
+    doubles_res -= np.einsum("amie,ebjm->abij", I_voov, t2, optimize=True)
+    doubles_res += 2.0 * np.einsum("bmje,aeim->abij", g[v, o, o, v], t2, optimize=True)
+    doubles_res -= np.einsum("bmje,aemi->abij", g[v, o, o, v], t2, optimize=True)
+    #
     doubles_res -= np.einsum("amei,ebmj->abij", I_vovo, t2, optimize=True)
-    doubles_res += np.einsum("amie,ebmj->abij", I_voov, t2s, optimize=True)
-    doubles_res += np.einsum("mbej,aeim->abij", g[o, v, v, o], t2s, optimize=True)
-    doubles_res += np.einsum("bmje,aeim->abij", g[v, o, o, v], t2, optimize=True)
-    doubles_res -= np.einsum("bmej,aeim->abij", g[v, o, v, o], t2, optimize=True)
-    doubles_res -= np.einsum("mbie,aemj->abij", g[o, v, o, v], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", I_vovo, t2, optimize=True)
-    doubles_res += np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
-    doubles_res += np.einsum("abef,efij->abij", g[v, v, v, v], t2, optimize=True)
-    doubles_res += g[v, v, o, o]
+    doubles_res -= np.einsum("bmej,aeim->abij", g[v, o, v, o], t2, optimize=True)
+    doubles_res -= np.einsum("bmei,aemj->abij", g[v, o, v, o], t2, optimize=True)
 
     return doubles_res
 

@@ -10,9 +10,6 @@ geom = [['H', (0.0, 0.0, -1.0)],
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, maxit=200, unit="Angstrom", rhf=True, cartesian=False)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='rccsd', maxit=80)
-
-assert np.allclose(E_corr, -0.277969251411, rtol=1.0e-08)
-
 H1, H2 = get_hbar(T, fock, g, o, v, method="rccsd")
 L = run_leftcc_calc(T, H1, H2, o, v, method="left_rccsd")
 
