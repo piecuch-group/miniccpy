@@ -141,68 +141,48 @@ def build_HR1(r1, r2, H1, H2, o, v):
     """Compute the projection of HR on singles
         X[a, i] = < ia | [ HBar(CCSD) * (R1 + R2) ]_C | 0 >
     """
-    # symmetric quantitites
-    r2s = r2 - np.transpose(r2, (0, 1, 3, 2))
     X1 = -np.einsum("mi,am->ai", H1[o, o], r1, optimize=True)
     X1 += np.einsum("ae,ei->ai", H1[v, v], r1, optimize=True)
-    X1 += np.einsum("amie,em->ai", H2[v, o, o, v], r1, optimize=True)
+    X1 += 2.0 * np.einsum("amie,em->ai", H2[v, o, o, v], r1, optimize=True)
     X1 -= np.einsum("amei,em->ai", H2[v, o, v, o], r1, optimize=True)
-    X1 += np.einsum("amie,em->ai", H2[v, o, o, v], r1, optimize=True)
-    X1 -= 0.5 * np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2s, optimize=True)
-    X1 += 0.5 * np.einsum("nmif,afmn->ai", H2[o, o, o, v], r2s, optimize=True)
-    X1 -= np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
-    X1 += 0.5 * np.einsum("anef,efin->ai", H2[v, o, v, v], r2s, optimize=True)
-    X1 -= 0.5 * np.einsum("anfe,efin->ai", H2[v, o, v, v], r2s, optimize=True)
-    X1 += np.einsum("anef,efin->ai", H2[v, o, v, v], r2, optimize=True)
-    X1 += np.einsum("me,aeim->ai", H1[o, v], r2s, optimize=True)
-    X1 += np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
+    X1 -= 2.0 * np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
+    X1 += np.einsum("nmif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
+    X1 += 2.0 * np.einsum("anef,efin->ai", H2[v, o, v, v], r2, optimize=True)
+    X1 -= np.einsum("anfe,efin->ai", H2[v, o, v, v], r2, optimize=True)
+    X1 += 2.0 * np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
+    X1 -= np.einsum("me,aemi->ai", H1[o, v], r2, optimize=True)
     return X1
 
 def build_HR2(r1, r2, t1, t2, H1, H2, o, v):
     """Compute the projection of HR on doubles
         X[a, b, i, j] = < ijab | [ HBar(CCSD) * (R1 + R2) ]_C | 0 >
     """
-    # symmetric quantitites
-    r2s = r2 - np.transpose(r2, (0, 1, 3, 2))
     # intermediates
     X_oo = (
-            + np.einsum("mnjf,fn->mj", H2[o, o, o, v], r1, optimize=True)
+            + 2.0 * np.einsum("mnjf,fn->mj", H2[o, o, o, v], r1, optimize=True)
             - np.einsum("nmjf,fn->mj", H2[o, o, o, v], r1, optimize=True)
-            + np.einsum("mnjf,fn->mj", H2[o, o, o, v], r1, optimize=True)
-            + 0.5 * np.einsum("mnef,efjn->mj", H2[o, o, v, v], r2s, optimize=True)
-            - 0.5 * np.einsum("nmef,efjn->mj", H2[o, o, v, v], r2s, optimize=True)
-            + np.einsum("mnef,efjn->mj", H2[o, o, v, v], r2, optimize=True)
+            + 2.0 * np.einsum("mnef,efjn->mj", H2[o, o, v, v], r2, optimize=True)
+            - np.einsum("nmef,efjn->mj", H2[o, o, v, v], r2, optimize=True)
     )
     X_vv = (
-            + np.einsum("bnef,fn->be", H2[v, o, v, v], r1, optimize=True)
+            + 2.0 * np.einsum("bnef,fn->be", H2[v, o, v, v], r1, optimize=True)
             - np.einsum("bnfe,fn->be", H2[v, o, v, v], r1, optimize=True)
-            + np.einsum("bnef,fn->be", H2[v, o, v, v], r1, optimize=True)
-            - 0.5 * np.einsum("mnef,bfmn->be", H2[o, o, v, v], r2s, optimize=True)
-            + 0.5 * np.einsum("nmef,bfmn->be", H2[o, o, v, v], r2s, optimize=True)
-            - np.einsum("mnef,bfmn->be", H2[o, o, v, v], r2, optimize=True)
+            - 2.0 * np.einsum("mnef,bfmn->be", H2[o, o, v, v], r2, optimize=True)
+            + np.einsum("nmef,bfmn->be", H2[o, o, v, v], r2, optimize=True)
     )
     # < IJAB | (H(2)*(R1+R2))_C | 0 >
     X2 = np.einsum("ae,ebij->abij", H1[v, v], r2, optimize=True)
-    X2 += np.einsum("be,aeij->abij", H1[v, v], r2, optimize=True)
     X2 -= np.einsum("mi,abmj->abij", H1[o, o], r2, optimize=True)
-    X2 -= np.einsum("mj,abim->abij", H1[o, o], r2, optimize=True)
-    X2 += np.einsum("mnij,abmn->abij", H2[o, o, o, o], r2, optimize=True)
-    X2 += np.einsum("abef,efij->abij", H2[v, v, v, v], r2, optimize=True)
-    X2 += np.einsum("amie,ebmj->abij", H2[v, o, o, v], r2, optimize=True)
-    X2 -= np.einsum("amei,ebmj->abij", H2[v, o, v, o], r2, optimize=True)
-    X2 += np.einsum("amie,ebmj->abij", H2[v, o, o, v], r2s, optimize=True)
-    X2 += np.einsum("bmje,aeim->abij", H2[v, o, o, v], r2s, optimize=True)
-    X2 += np.einsum("bmje,aeim->abij", H2[v, o, o, v], r2, optimize=True)
-    X2 -= np.einsum("bmej,aeim->abij", H2[v, o, v, o], r2, optimize=True)
-    X2 -= np.einsum("bmei,aemj->abij", H2[v, o, v, o], r2, optimize=True)
-    X2 -= np.einsum("amej,ebim->abij", H2[v, o, v, o], r2, optimize=True)
+    X2 += 0.5 * np.einsum("mnij,abmn->abij", H2[o, o, o, o], r2, optimize=True)
+    X2 += 0.5 * np.einsum("abef,efij->abij", H2[v, v, v, v], r2, optimize=True)
     X2 += np.einsum("baje,ei->abij", H2[v, v, o, v], r1, optimize=True)
-    X2 += np.einsum("abie,ej->abij", H2[v, v, o, v], r1, optimize=True)
     X2 -= np.einsum("bmji,am->abij", H2[v, o, o, o], r1, optimize=True)
-    X2 -= np.einsum("amij,bm->abij", H2[v, o, o, o], r1, optimize=True)
     X2 += np.einsum("ae,ebij->abij", X_vv, t2, optimize=True)
     X2 -= np.einsum("mi,abmj->abij", X_oo, t2, optimize=True)
-    X2 += np.einsum("be,aeij->abij", X_vv, t2, optimize=True)
-    X2 -= np.einsum("mj,abim->abij", X_oo, t2, optimize=True)
+    X2 += 2.0 * np.einsum("amie,ebmj->abij", H2[v, o, o, v], r2, optimize=True)
+    X2 -= np.einsum("amie,ebjm->abij", H2[v, o, o, v], r2, optimize=True)
+    X2 -= np.einsum("amei,ebmj->abij", H2[v, o, v, o], r2, optimize=True)
+    X2 -= np.einsum("amej,ebim->abij", H2[v, o, v, o], r2, optimize=True)
+    X2 += X2.transpose(1, 0, 3, 2)
     return X2
 
