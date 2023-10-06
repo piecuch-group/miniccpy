@@ -3,87 +3,59 @@ import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
 
-def LH_singles(l1, l2, t2, H1, H2, o, v):
-    """Compute the projection of the CCSD Hamiltonian on singles
-        X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
-    """
-    # h(EA)*l(EI)
-    LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
-    # -h(IM)*l(AM)
-    LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
-    # [2*h(EIMA) - h(EIAM)]*l(EM)
-    LH += 2.0 * np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
-    LH -= np.einsum("eiam,em->ai", H2[v, o, v, o], l1, optimize=True)
-    # h(FENA)*[2*l(EFIN) - l(EFNI)]
-    LH += 2.0 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
-    LH -= np.einsum("fena,efni->ai", H2[v, v, o, v], l2, optimize=True)
-    # -h(FINM)*[2*l(AFMN) - l(AFNM)]
-    LH -= 2.0 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
-    LH += np.einsum("finm,afnm->ai", H2[v, o, o, o], l2, optimize=True)
-
-    I1 = (
+def LT_intermediates(l2, t2):
+    """Compute L2*T2-type one-body intermediates."""
+    # Allocate a dictionary to store the two intermediates
+    I = {"vv": None, "oo": None}
+    I["vv"] = (
           -2.0 * np.einsum("afmn,efmn->ea", l2, t2, optimize=True)
           + np.einsum("afnm,efmn->ea", l2, t2, optimize=True)
     )
-    I2 = (
+    I["oo"] = (
           2.0 * np.einsum("efin,efjn->ij", l2, t2, optimize=True)
           - np.einsum("efni,efjn->ij", l2, t2, optimize=True)
     )
-    LH -= 2.0 * np.einsum("ge,eiga->ai", I1, H2[v, o, v, v], optimize=True)
-    LH += np.einsum("ge,eiag->ai", I1, H2[v, o, v, v], optimize=True)
-    LH -= 2.0 * np.einsum("mn,nima->ai", I2, H2[o, o, o, v], optimize=True)
-    LH += np.einsum("mn,inma->ai", I2, H2[o, o, o, v], optimize=True)
+    return I
 
+def LH_singles(l1, l2, t2, H1, H2, I, o, v):
+    """Compute the projection of the CCSD Hamiltonian on singles
+        X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
+    """
+    LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
+    LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
+    LH += 2.0 * np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
+    LH -= np.einsum("eiam,em->ai", H2[v, o, v, o], l1, optimize=True)
+    LH += 2.0 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
+    LH -= np.einsum("fena,efni->ai", H2[v, v, o, v], l2, optimize=True)
+    LH -= 2.0 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
+    LH += np.einsum("finm,afnm->ai", H2[v, o, o, o], l2, optimize=True)
+    LH -= 2.0 * np.einsum("ge,eiga->ai", I["vv"], H2[v, o, v, v], optimize=True)
+    LH += np.einsum("ge,eiag->ai", I["vv"], H2[v, o, v, v], optimize=True)
+    LH -= 2.0 * np.einsum("mn,nima->ai", I["oo"], H2[o, o, o, v], optimize=True)
+    LH += np.einsum("mn,inma->ai", I["oo"], H2[o, o, o, v], optimize=True)
     LH += H1[o, v].transpose(1, 0)
     return LH
 
-def LH_doubles(l1, l2, t2, H1, H2, o, v):
+def LH_doubles(l1, l2, t2, H1, H2, I, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
     LH = -np.einsum("ijmb,am->abij", H2[o, o, o, v], l1, optimize=True)
-    #LH -= np.einsum("jima,bm->abij", H2[o, o, o, v], l1, optimize=True) # (ij)(ab) of above
-
     LH += np.einsum("ejab,ei->abij", H2[v, o, v, v], l1, optimize=True)
-    #LH += np.einsum("eiba,ej->abij", H2[v, o, v, v], l1, optimize=True) # (ij)(ab) of above
-
     LH += 2.0 * np.einsum("ejmb,aeim->abij", H2[v, o, o, v], l2, optimize=True)
     LH -= np.einsum("ejmb,aemi->abij", H2[v, o, o, v], l2, optimize=True)
-    #LH += 2.0 * np.einsum("eima,ebmj->abij", H2[v, o, o, v], l2, optimize=True) # (ij)(ab) of above
-    #LH -= np.einsum("eima,ebjm->abij", H2[v, o, o, v], l2, optimize=True)
-
     LH += np.einsum("ea,ebij->abij", H1[v, v], l2, optimize=True)
-    #LH += np.einsum("eb,aeij->abij", H1[v, v], l2, optimize=True) # (ij)(ab) of above
-
     LH -= np.einsum("im,abmj->abij", H1[o, o], l2, optimize=True)
-    #LH -= np.einsum("jm,abim->abij", H1[o, o], l2, optimize=True) # (ij)(ab) of above
-
     LH += np.einsum("jb,ai->abij", H1[o, v], l1, optimize=True)
-    #LH += np.einsum("ia,bj->abij", H1[o, v], l1, optimize=True) # (ij)(ab) of above
-
     LH += 0.5 * np.einsum("ijmn,abmn->abij", H2[o, o, o, o], l2, optimize=True)
     LH += 0.5 * np.einsum("efab,efij->abij", H2[v, v, v, v], l2, optimize=True)
-
     LH -= np.einsum("eiam,ebmj->abij", H2[v, o, v, o], l2, optimize=True)
     LH -= np.einsum("ejam,ebim->abij", H2[v, o, v, o], l2, optimize=True)
-    #LH -= np.einsum("ejbm,aeim->abij", H2[v, o, v, o], l2, optimize=True) # (ij)(ab) of above
-    #LH -= np.einsum("eibm,aemj->abij", H2[v, o, v, o], l2, optimize=True)
-
-    I1 = (
-          -2.0 * np.einsum("afmn,efmn->ea", l2, t2, optimize=True)
-          + np.einsum("afnm,efmn->ea", l2, t2, optimize=True)
-    )
-    I2 = (
-          2.0 * np.einsum("efin,efjn->ij", l2, t2, optimize=True)
-          - np.einsum("efni,efjn->ij", l2, t2, optimize=True)
-    )
-    LH += np.einsum("ea,ijeb->abij", I1, H2[o, o, v, v], optimize=True)
-    LH -= np.einsum("im,mjab->abij", I2, H2[o, o, v, v], optimize=True)
-    #LH += np.einsum("ea,jibe->baji", I1, H2[o, o, v, v], optimize=True) # (ij)(ab) of above
-    #LH -= np.einsum("im,jmba->baji", I1, H2[o, o, v, v], optimize=True)
+    LH += np.einsum("ea,ijeb->abij", I["vv"], H2[o, o, v, v], optimize=True)
+    LH -= np.einsum("im,mjab->abij", I["oo"], H2[o, o, v, v], optimize=True)
+    LH += 0.5 * H2[o, o, v, v].transpose(2, 3, 0, 1)
     # apply symmetrizer (ij)(ab)
     LH += LH.transpose(1, 0, 3, 2)
-    LH += H2[o, o, v, v].transpose(2, 3, 0, 1)
     return LH
 
 def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
@@ -118,8 +90,9 @@ def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start
 
         tic = time.time()
 
-        lh1 = LH_singles(l1, l2, t2, H1, H2, o, v)
-        lh2 = LH_doubles(l1, l2, t2, H1, H2, o, v)
+        I = LT_intermediates(l2, t2)
+        lh1 = LH_singles(l1, l2, t2, H1, H2, I, o, v)
+        lh2 = LH_doubles(l1, l2, t2, H1, H2, I, o, v)
 
         lh1 = (omega * l1 - lh1) * e_ai
         lh2 = (omega * l2 - lh2) * e_abij

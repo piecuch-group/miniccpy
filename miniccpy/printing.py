@@ -66,17 +66,17 @@ def print_custom_system_information_rhf(fock, nelectrons, nfrozen, hf_energy):
     print(WHITESPACE, "System Information:")
     print(WHITESPACE, "----------------------------------------------------")
     print(WHITESPACE, "  Number of correlated electrons =", nelectrons - 2 * nfrozen)
-    print(WHITESPACE, "  Number of correlated orbitals =", 2 * norbitals - 2 * nfrozen)
-    print(WHITESPACE, "  Number of frozen orbitals =", 2 * nfrozen)
+    print(WHITESPACE, "  Number of correlated orbitals =", norbitals - nfrozen)
+    print(WHITESPACE, "  Number of frozen orbitals =", nfrozen)
     print(
             WHITESPACE,
             "  Number of occupied orbitals =",
-            nelectrons - 2 * nfrozen,
+            int(nelectrons / 2) - nfrozen,
     )
     print(
             WHITESPACE,
             "  Number of unoccupied orbitals =",
-            2 * norbitals - nelectrons ,
+            norbitals - int(nelectrons / 2) ,
     )
     print(
             WHITESPACE, "  Spin multiplicity of reference =", 1

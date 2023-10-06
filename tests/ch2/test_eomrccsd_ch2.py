@@ -4,7 +4,7 @@ from miniccpy.driver import run_scf_gamess, run_cc_calc, run_guess, run_eomcc_ca
 
 TEST_DATA_DIR = str(Path(__file__).parents[1].absolute() / "data")
 
-fock, g, e_hf, o, v = run_scf_gamess(TEST_DATA_DIR + "/ch2-avdz-koch.FCIDUMP", 8, 27, nfrozen=0, rhf=True)
+fock, g, e_hf, o, v = run_scf_gamess(TEST_DATA_DIR + "/ch2-avdz-koch.FCIDUMP", 8, 27, nfrozen=1, rhf=True)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method="rccsd")
 

@@ -143,14 +143,14 @@ def build_HR1(r1, r2, H1, H2, o, v):
     """
     X1 = -np.einsum("mi,am->ai", H1[o, o], r1, optimize=True)
     X1 += np.einsum("ae,ei->ai", H1[v, v], r1, optimize=True)
+    X1 += 2.0 * np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
+    X1 -= np.einsum("me,aemi->ai", H1[o, v], r2, optimize=True)
     X1 += 2.0 * np.einsum("amie,em->ai", H2[v, o, o, v], r1, optimize=True)
     X1 -= np.einsum("amei,em->ai", H2[v, o, v, o], r1, optimize=True)
     X1 -= 2.0 * np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
     X1 += np.einsum("nmif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
     X1 += 2.0 * np.einsum("anef,efin->ai", H2[v, o, v, v], r2, optimize=True)
     X1 -= np.einsum("anfe,efin->ai", H2[v, o, v, v], r2, optimize=True)
-    X1 += 2.0 * np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
-    X1 -= np.einsum("me,aemi->ai", H1[o, v], r2, optimize=True)
     return X1
 
 def build_HR2(r1, r2, t1, t2, H1, H2, o, v):
