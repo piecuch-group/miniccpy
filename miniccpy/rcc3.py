@@ -9,9 +9,19 @@ def singles_residual(t1, t2, t3, f, g, o, v):
         X[a, i] = < ia | (H_N exp(T1+T2+T3))_C | 0 >
     """
     # symmetric quantities
-    t3s = t3 - t3.transpose(0, 1, 2, 3, 5, 4) + t3.transpose(0, 1, 2, 4, 5, 3) - t3.transpose(0, 1, 2, 4, 3, 5) + t3.transpose(0, 1, 2, 5, 3, 4) - t3.transpose(0, 1, 2, 5, 4, 3)
-    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
-    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
+    #t3s = t3 - t3.transpose(0, 1, 2, 3, 5, 4) + t3.transpose(0, 1, 2, 4, 5, 3) - t3.transpose(0, 1, 2, 4, 3, 5) + t3.transpose(0, 1, 2, 5, 3, 4) - t3.transpose(0, 1, 2, 5, 4, 3)
+    #t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
+    #t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
+    # spin-summed t3: t3(ABcIJk) = 2*t3(AbcIjk) - t3(Abc
+    #                            = 2*(2*t3(abcijk) - t3(abcjik) - t3(abckji)) - 
+    t3_ss = (
+                4.0 * t3 
+                - 2.0 * t3.transpose(0, 1, 2, 4, 3, 5) 
+                - 2.0 * t3.transpose(0, 1, 2, 5, 4, 3) 
+                - 2.0 * t3.transpose(0, 1, 2, 3, 5, 4) 
+                + t3.transpose(0, 1, 2, 4, 5, 3) 
+                + t3.transpose(0, 1, 2, 5, 3, 4)
+    )
     # intermediates
     I_ov = (
              f[o, v]
@@ -44,11 +54,7 @@ def singles_residual(t1, t2, t3, f, g, o, v):
     singles_res -= np.einsum("anfe,efin->ai", I_vovv, t2, optimize=True)
     singles_res += f[v, o]
     # T3 parts
-    singles_res += 0.25 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3s, optimize=True)
-    singles_res -= 0.25 * np.einsum("nmef,aefimn->ai", g[o, o, v, v], t3s, optimize=True)
-    singles_res += np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3b, optimize=True)
-    singles_res += 0.25 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3c, optimize=True)
-    singles_res -= 0.25 * np.einsum("nmef,aefimn->ai", g[o, o, v, v], t3c, optimize=True)
+    singles_res += 0.5 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3_ss, optimize=True)
     return singles_res
 
 
@@ -56,11 +62,14 @@ def doubles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2+T3))_C | 0 >
     """
-    H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
-    # symmetric quantities
-    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
-    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
+    # partially spin-summed t3(AbcIjk) = 2*t3(abcijk) - t3(abcjik) - t3(abckji)
+    t3_s = (
+            2.0 * t3
+            - t3.transpose(0, 1, 2, 4, 3, 5)
+            - t3.transpose(0, 1, 2, 5, 4, 3)
+    )
     # intermediates
+    H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
     I_vv = (
         H1[v, v]
         - 2.0 * np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
@@ -89,6 +98,10 @@ def doubles_residual(t1, t2, t3, f, g, o, v):
     doubles_res += 0.5 * np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
     doubles_res += 0.5 * np.einsum("abef,efij->abij", g[v, v, v, v], tau, optimize=True)
     doubles_res += 0.5 * g[v, v, o, o]
+    # T3 parts
+    doubles_res += 0.5 * np.einsum("me,eabmij->abij", H1[o, v], t3_s, optimize=True)
+    doubles_res += np.einsum("amef,febmij->abij", g[v, o, v, v] + H2[v, o, v, v], t3_s, optimize=True)
+    doubles_res -= np.einsum("nmje,eabmin->abij", g[o, o, o, v] + H2[o, o, o, v], t3_s, optimize=True)
     doubles_res += doubles_res.transpose(1, 0, 3, 2)
     # remaining terms
     # can be made into (ij)(ab) pairs
@@ -105,21 +118,6 @@ def doubles_residual(t1, t2, t3, f, g, o, v):
     # can be made into (ij)(ab) pairs
     doubles_res -= np.einsum("bmei,aemj->abij", H2[v, o, v, o], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", I_vovo, t2, optimize=True)
-    # T3 parts
-    doubles_res -= 0.5 * np.einsum("mnif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
-    doubles_res += 0.5 * np.einsum("nmif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
-    doubles_res -= np.einsum("mnjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
-    doubles_res -= 0.5 * np.einsum("mnjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
-    doubles_res += 0.5 * np.einsum("nmjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
-    doubles_res -= np.einsum("mnif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
-    doubles_res += 0.5 * np.einsum("anef,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
-    doubles_res -= 0.5 * np.einsum("anfe,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
-    doubles_res += np.einsum("anef,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
-    doubles_res += np.einsum("bnef,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
-    doubles_res += 0.5 * np.einsum("bnef,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
-    doubles_res -= 0.5 * np.einsum("bnfe,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
-    doubles_res += np.einsum("me,aebimj->abij", H1[o, v], t3b, optimize=True)
-    doubles_res += np.einsum("me,aebimj->abij", H1[o, v], t3c, optimize=True)
     return doubles_res
 
 def compute_ccs_intermediates(f, g, t1, t2, o, v):

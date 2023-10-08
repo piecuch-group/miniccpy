@@ -152,12 +152,11 @@ def build_hbar_rccsd(T, f, g, o, v):
     )
     return H1, H2
 
-def get_rccsd_intermediates(T, f, g, o, v):
+def get_rccsd_intermediates(t1, t2, f, g, o, v):
     norbitals = f.shape[0]
     nunocc, nocc = f[v, o].shape
     n1 = nunocc * nocc
 
-    t1, t2 = T
     t2s = t2 - np.transpose(t2, (0, 1, 3, 2))
     gs_oovv = g[o, o, v, v] - np.transpose(g[o, o, v, v], (0, 1, 3, 2))
     gs_ooov = g[o, o, o, v] - np.transpose(g[o, o, o, v], (1, 0, 2, 3))

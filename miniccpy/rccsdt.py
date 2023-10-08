@@ -8,6 +8,16 @@ def singles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on singles
         X[a, i] = < ia | (H_N exp(T1+T2+T3))_C | 0 >
     """
+    # spin-summed t3: t3(ABcIJk) = 2*t3(AbcIjk) - t3(Abc
+    #                            = 2*(2*t3(abcijk) - t3(abcjik) - t3(abckji)) - 
+    t3_ss = (
+                4.0 * t3 
+                - 2.0 * t3.transpose(0, 1, 2, 4, 3, 5) 
+                - 2.0 * t3.transpose(0, 1, 2, 5, 4, 3) 
+                - 2.0 * t3.transpose(0, 1, 2, 3, 5, 4) 
+                + t3.transpose(0, 1, 2, 4, 5, 3) 
+                + t3.transpose(0, 1, 2, 5, 3, 4)
+    )
     # intermediates
     I_ov = (
              f[o, v]
@@ -39,14 +49,22 @@ def singles_residual(t1, t2, t3, f, g, o, v):
     singles_res += 2.0 * np.einsum("anef,efin->ai", I_vovv, t2, optimize=True)
     singles_res -= np.einsum("anfe,efin->ai", I_vovv, t2, optimize=True)
     singles_res += f[v, o]
+    # T3 parts
+    singles_res += 0.5 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3_ss, optimize=True)
     return singles_res
 
 def doubles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2+T3))_C | 0 >
     """
-    H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
+    # partially spin-summed t3(AbcIjk) = 2*t3(abcijk) - t3(abcjik) - t3(abckji)
+    t3_s = (
+            2.0 * t3
+            - t3.transpose(0, 1, 2, 4, 3, 5)
+            - t3.transpose(0, 1, 2, 5, 4, 3)
+    )
     # intermediates
+    H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
     I_vv = (
         H1[v, v]
         - 2.0 * np.einsum("mnef,afmn->ae", g[o, o, v, v], t2, optimize=True)
@@ -75,6 +93,10 @@ def doubles_residual(t1, t2, t3, f, g, o, v):
     doubles_res += 0.5 * np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
     doubles_res += 0.5 * np.einsum("abef,efij->abij", g[v, v, v, v], tau, optimize=True)
     doubles_res += 0.5 * g[v, v, o, o]
+    # T3 parts
+    doubles_res += 0.5 * np.einsum("me,eabmij->abij", H1[o, v], t3_s, optimize=True)
+    doubles_res += np.einsum("amef,febmij->abij", g[v, o, v, v] + H2[v, o, v, v], t3_s, optimize=True)
+    doubles_res -= np.einsum("nmje,eabmin->abij", g[o, o, o, v] + H2[o, o, o, v], t3_s, optimize=True)
     doubles_res += doubles_res.transpose(1, 0, 3, 2)
     # remaining terms
     # can be made into (ij)(ab) pairs
@@ -97,66 +119,38 @@ def triples_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on triples
         X[a, b, c, i, j, k] = < ijkabc | (H_N exp(T1+T2+T3))_C | 0 >
     """
-    H1, H2 = get_rccsd_intermediates(t1, f, g, o, v)
-    # symmetric quantities
-    t3s = t3 - t3.transpose(0, 1, 2, 3, 5, 4) + t3.transpose(0, 1, 2, 4, 5, 3) - t3.transpose(0, 1, 2, 4, 3, 5) + t3.transpose(0, 1, 2, 5, 3, 4) - t3.transpose(0, 1, 2, 5, 4, 3)
-    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
-    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
-    t2s = t2 - t2.transpose(0, 1, 3, 2)
-    #
-    gs_oovv = g[o, o, v, v] - g[o, o, v, v].transpose(0, 1, 3, 2)
+    # partially spin-summed t3(AbcIjk) = 2*t3(abcijk) - t3(abcjik) - t3(abckji)
+    t3_s = (
+            2.0 * t3
+            - t3.transpose(0, 1, 2, 4, 3, 5)
+            - t3.transpose(0, 1, 2, 5, 4, 3)
+    )
     # intermediates
-    Is_vvov = -0.5 * np.einsum("mnef,abfimn->abie", gs_oovv, t3s, optimize=True)
-    Is_vvov += -np.einsum("mnef,abfimn->abie", g[o, o, v, v], t3b, optimize=True)
-    Is_vvov += H2[v, v, o, v] - H2[v, v, o, v].transpose(1, 0, 2, 3)
-    
-    Is_vooo = 0.5 * np.einsum("mnef,aefijn->amij", gs_oovv, t3s, optimize=True)
-    Is_vooo += np.einsum("mnef,aefijn->amij", g[o, o, v, v], t3b, optimize=True)
-    Is_vooo += -np.einsum("me,aeij->amij", H1[o, v], t2s, optimize=True)
-    Is_vooo += H2[v, o, o, o] - H2[v, o, o, o].transpose(0, 1, 3, 2)
-
-    I_vvvo = -0.5 * np.einsum("mnef,afbmnj->abej", gs_oovv, t3b, optimize=True)
-    I_vvvo += -np.einsum("mnef,afbmnj->abej", g[o, o, v, v], t3c, optimize=True)
-    I_vvvo += H2[v, v, v, o]
-    
-    I_ovoo = 0.5 * np.einsum("mnef,efbinj->mbij", gs_oovv, t3b, optimize=True)
-    I_ovoo += np.einsum("mnef,efbinj->mbij", g[o, o, v, v], t3c, optimize=True)
-    I_ovoo += -np.einsum("me,ecjk->mcjk", H1[o, v], t2, optimize=True)
-    I_ovoo += H2[o, v, o, o]
-
-    I_vvov = -np.einsum("nmfe,afbinm->abie", g[o, o, v, v], t3b, optimize=True)
-    I_vvov += -0.5 * np.einsum("nmfe,afbinm->abie", gs_oovv, t3c, optimize=True)
-    I_vvov += H2[v, v, o, v]
-    
-    I_vooo = np.einsum("nmfe,afeinj->amij", g[o, o, v, v], t3b, optimize=True)
-    I_vooo += 0.5 * np.einsum("nmfe,afeinj->amij", gs_oovv, t3c, optimize=True)
-    I_vooo += -np.einsum("me,aeik->amik", H1[o, v], t2, optimize=True)
-    I_vooo += H2[v, o, o, o]
+    H1, H2 = get_rccsd_intermediates(t1, t2, f, g, o, v)
+    I_vvov = H2[v, v, o, v] - np.einsum("nmfe,fabnim->abie", g[o, o, v, v], t3_s, optimize=True)
+    I_vooo = H2[v, o, o, o] + (
+            - np.einsum("me,aeik->amik", H1[o, v], t2, optimize=True)
+            + np.einsum("nmfe,faenij->amij", g[o, o, v, v], t3_s, optimize=True)
+    )
 
     # MM(2,3)B
-    triples_res = 0.5 * np.einsum("bcek,aeij->abcijk", I2B_vvvo, t2s, optimize=True)
-    triples_res -= 0.5 * np.einsum("mcjk,abim->abcijk", I2B_ovoo, t2s, optimize=True)
-    triples_res += np.einsum("acie,bejk->abcijk", I2B_vvov, t2, optimize=True)
-    triples_res -= np.einsum("amik,bcjm->abcijk", I2B_vooo, t2, optimize=True)
-    triples_res += 0.5 * np.einsum("abie,ecjk->abcijk", I2A_vvov, t2, optimize=True)
-    triples_res -= 0.5 * np.einsum("amij,bcmk->abcijk", I2A_vooo, t2, optimize=True)
+    triples_res = -np.einsum("amij,bcmk->abcijk", I_vooo, t2, optimize=True)
+    triples_res += np.einsum("abie,ecjk->abcijk", I_vvov, t2, optimize=True)
     # (HBar*T3)_C
-    triples_res -= 0.5 * np.einsum("mi,abcmjk->abcijk", H.a.oo, t3b, optimize=True)
-    triples_res -= 0.25 * np.einsum("mk,abcijm->abcijk", H.b.oo, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("ae,ebcijk->abcijk", H.a.vv, t3b, optimize=True)
-    triples_res += 0.25 * np.einsum("ce,abeijk->abcijk", H.b.vv, t3b, optimize=True)
-    triples_res += 0.125 * np.einsum("mnij,abcmnk->abcijk", H.aa.oooo, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("mnjk,abcimn->abcijk", H.ab.oooo, t3b, optimize=True)
-    triples_res += 0.125 * np.einsum("abef,efcijk->abcijk", H.aa.vvvv, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("bcef,aefijk->abcijk", H.ab.vvvv, t3b, optimize=True)
-    triples_res += np.einsum("amie,ebcmjk->abcijk", H.aa.voov, t3b, optimize=True)
-    triples_res += np.einsum("amie,becjmk->abcijk", H.ab.voov, t3c, optimize=True)
-    triples_res += 0.25 * np.einsum("mcek,abeijm->abcijk", H.ab.ovvo, t3a, optimize=True)
-    triples_res += 0.25 * np.einsum("cmke,abeijm->abcijk", H.bb.voov, t3b, optimize=True)
-    triples_res -= 0.5 * np.einsum("amek,ebcijm->abcijk", H.ab.vovo, t3b, optimize=True)
-    triples_res -= 0.5 * np.einsum("mcie,abemjk->abcijk", H.ab.ovov, t3b, optimize=True)
-    triples_res -= np.transpose(triples_res, (1, 0, 2, 3, 4, 5))
-    triples_res -= np.transpose(triples_res, (0, 1, 2, 4, 3, 5))
+    triples_res += 0.5 * np.einsum("ae,ebcijk->abcijk", H1[v, v], t3, optimize=True)
+    triples_res -= 0.5 * np.einsum("mi,abcmjk->abcijk", H1[o, o], t3, optimize=True)
+    triples_res += 0.5 * np.einsum("mnij,abcmnk->abcijk", H2[o, o, o, o], t3, optimize=True)
+    triples_res += 0.5 * np.einsum("abef,efcijk->abcijk", H2[v, v, v, v], t3, optimize=True)
+    triples_res += 0.5 * np.einsum("amie,ebcmjk->abcijk", H2[v, o, o, v], t3_s, optimize=True)
+    triples_res -= 0.25 * np.einsum("amei,ebcmjk->abcijk", H2[v, o, v, o], t3_s, optimize=True)
+    triples_res -= 0.5 * np.einsum("amei,ebcjmk->abcijk", H2[v, o, v, o], t3, optimize=True)
+    triples_res -= np.einsum("bmei,eacjmk->abcijk", H2[v, o, v, o], t3, optimize=True)
+    # [1 + P(ai/bj)][1 + P(ai/ck) + P(bj/ck)] = 1 + P(ai/bj) + P(ai/ck) + P(bj/ck) + P(ai/bj)P(ai/ck) + P(ai/bj)P(bj/ck)
+    triples_res += (    triples_res.transpose(1, 0, 2, 4, 3, 5)   # (ij)(ab)
+                      + triples_res.transpose(2, 1, 0, 5, 4, 3)   # (ac)(ik)
+                      + triples_res.transpose(0, 2, 1, 3, 5, 4)   # (bc)(jk)
+                      + triples_res.transpose(2, 0, 1, 5, 3, 4)   # (ab)(ij)(ac)(ik)
+                      + triples_res.transpose(1, 2, 0, 4, 5, 3) ) # (ab)(ij)(bc)(jk)
     return triples_res
 
 
