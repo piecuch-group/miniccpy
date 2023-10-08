@@ -9,7 +9,7 @@ modules = glob.glob(join(dirname(__file__), "*.py"))
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
 # Manually specify those modules that are RHF non-orthogonally spin-adapted codes
-RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "eomrccsd", "rcc3", "rccsdt"]
+RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
