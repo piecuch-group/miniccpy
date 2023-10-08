@@ -7,8 +7,9 @@ nfrozen = 0
 geom = [['F', (0.0, 0.0, -2.66816)], 
         ['F', (0.0, 0.0,  2.66816)]]
 
-fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, unit="Bohr")
+fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, unit="Bohr", rhf=True)
 
-T, E_corr = run_cc_calc(fock, g, o, v, method="cc3")
+T, E_corr = run_cc_calc(fock, g, o, v, method="rcc3")
 
 assert np.allclose(-0.500830858037, E_corr, atol=1.0e-08)
+

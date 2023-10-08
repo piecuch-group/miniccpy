@@ -1,13 +1,17 @@
 import time
 import numpy as np
 from miniccpy.energy import rcc_energy
-from miniccpy.hbar import get_rccs_intermediates, get_rccsd_intermediates
+from miniccpy.hbar import get_rccs_intermediates
 from miniccpy.diis import DIIS
 
 def singles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on singles
         X[a, i] = < ia | (H_N exp(T1+T2+T3))_C | 0 >
     """
+    # symmetric quantities
+    t3s = t3 - t3.transpose(0, 1, 2, 3, 5, 4) + t3.transpose(0, 1, 2, 4, 5, 3) - t3.transpose(0, 1, 2, 4, 3, 5) + t3.transpose(0, 1, 2, 5, 3, 4) - t3.transpose(0, 1, 2, 5, 4, 3)
+    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
+    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
     # intermediates
     I_ov = (
              f[o, v]
@@ -39,13 +43,23 @@ def singles_residual(t1, t2, t3, f, g, o, v):
     singles_res += 2.0 * np.einsum("anef,efin->ai", I_vovv, t2, optimize=True)
     singles_res -= np.einsum("anfe,efin->ai", I_vovv, t2, optimize=True)
     singles_res += f[v, o]
+    # T3 parts
+    singles_res += 0.25 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3s, optimize=True)
+    singles_res -= 0.25 * np.einsum("nmef,aefimn->ai", g[o, o, v, v], t3s, optimize=True)
+    singles_res += np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3b, optimize=True)
+    singles_res += 0.25 * np.einsum("mnef,aefimn->ai", g[o, o, v, v], t3c, optimize=True)
+    singles_res -= 0.25 * np.einsum("nmef,aefimn->ai", g[o, o, v, v], t3c, optimize=True)
     return singles_res
+
 
 def doubles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2+T3))_C | 0 >
     """
     H1, H2 = get_rccs_intermediates(t1, f, g, o, v)
+    # symmetric quantities
+    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
+    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
     # intermediates
     I_vv = (
         H1[v, v]
@@ -91,74 +105,69 @@ def doubles_residual(t1, t2, t3, f, g, o, v):
     # can be made into (ij)(ab) pairs
     doubles_res -= np.einsum("bmei,aemj->abij", H2[v, o, v, o], t2, optimize=True)
     doubles_res -= np.einsum("amej,ebim->abij", I_vovo, t2, optimize=True)
+    # T3 parts
+    doubles_res -= 0.5 * np.einsum("mnif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
+    doubles_res += 0.5 * np.einsum("nmif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
+    doubles_res -= np.einsum("mnjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3b, optimize=True)
+    doubles_res -= 0.5 * np.einsum("mnjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
+    doubles_res += 0.5 * np.einsum("nmjf,afbinm->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
+    doubles_res -= np.einsum("mnif,afbmnj->abij", g[o, o, o, v] + H2[o, o, o, v], t3c, optimize=True)
+    doubles_res += 0.5 * np.einsum("anef,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
+    doubles_res -= 0.5 * np.einsum("anfe,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
+    doubles_res += np.einsum("anef,efbinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
+    doubles_res += np.einsum("bnef,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3b, optimize=True)
+    doubles_res += 0.5 * np.einsum("bnef,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
+    doubles_res -= 0.5 * np.einsum("bnfe,afeinj->abij", g[v, o, v, v] + H2[v, o, v, v], t3c, optimize=True)
+    doubles_res += np.einsum("me,aebimj->abij", H1[o, v], t3b, optimize=True)
+    doubles_res += np.einsum("me,aebimj->abij", H1[o, v], t3c, optimize=True)
     return doubles_res
 
-def triples_residual(t1, t2, t3, f, g, o, v):
+def compute_ccs_intermediates(f, g, t1, t2, o, v):
+    Q1 = -np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)
+    I_vovv = g[v, o, v, v] + 0.5 * Q1
+
+    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
+    I_ooov = g[o, o, o, v] + 0.5 * Q1
+
+    I_vvvv = g[v, v, v, v] + (
+            - np.einsum("amef,bm->abef", I_vovv, t1, optimize=True)
+            - np.einsum("bmfe,am->abef", I_vovv, t1, optimize=True)
+    )
+
+    I_oooo = g[o, o, o, o] + (
+              np.einsum("mnie,ej->mnij", I_ooov, t1, optimize=True)
+            + np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
+    )
+
+    Q1 = g[v, o, o, v] + np.einsum("amfe,fi->amie", g[v, o, v, v], t1, optimize=True)
+    I_vooo = g[v, o, o, o] + (
+            - np.einsum("nmij,an->amij", I_oooo, t1, optimize=True)
+            + np.einsum("amej,ei->amij", g[v, o, v, o], t1, optimize=True)
+            + np.einsum("amie,ej->amij", Q1, t1, optimize=True)
+    )
+    Q1 = g[o, v, o, v] - np.einsum("mnie,bn->mbie", g[o, o, o, v], t1, optimize=True)
+    Q1 = -np.einsum("mbie,am->abie", Q1, t1, optimize=True)
+    I_vvov = g[v, v, o, v] + Q1 + (
+            + np.einsum("abfe,fi->abie", I_vvvv, t1, optimize=True)
+            - np.einsum("amie,bm->abie", g[v, o, o, v], t1, optimize=True)
+    )
+    return I_vooo, I_vvov
+
+def compute_t3(I_vooo, I_vvov, t2, e_abcijk):
     """Compute the projection of the CCSDT Hamiltonian on triples
         X[a, b, c, i, j, k] = < ijkabc | (H_N exp(T1+T2+T3))_C | 0 >
     """
-    H1, H2 = get_rccsd_intermediates(t1, f, g, o, v)
-    # symmetric quantities
-    t3s = t3 - t3.transpose(0, 1, 2, 3, 5, 4) + t3.transpose(0, 1, 2, 4, 5, 3) - t3.transpose(0, 1, 2, 4, 3, 5) + t3.transpose(0, 1, 2, 5, 3, 4) - t3.transpose(0, 1, 2, 5, 4, 3)
-    t3b = t3 - t3.transpose(0, 1, 2, 4, 3, 5)
-    t3c = t3 - t3.transpose(0, 1, 2, 3, 5, 4)
-    t2s = t2 - t2.transpose(0, 1, 3, 2)
-    #
-    gs_oovv = g[o, o, v, v] - g[o, o, v, v].transpose(0, 1, 3, 2)
-    # intermediates
-    Is_vvov = -0.5 * np.einsum("mnef,abfimn->abie", gs_oovv, t3s, optimize=True)
-    Is_vvov += -np.einsum("mnef,abfimn->abie", g[o, o, v, v], t3b, optimize=True)
-    Is_vvov += H2[v, v, o, v] - H2[v, v, o, v].transpose(1, 0, 2, 3)
-    
-    Is_vooo = 0.5 * np.einsum("mnef,aefijn->amij", gs_oovv, t3s, optimize=True)
-    Is_vooo += np.einsum("mnef,aefijn->amij", g[o, o, v, v], t3b, optimize=True)
-    Is_vooo += -np.einsum("me,aeij->amij", H1[o, v], t2s, optimize=True)
-    Is_vooo += H2[v, o, o, o] - H2[v, o, o, o].transpose(0, 1, 3, 2)
-
-    I_vvvo = -0.5 * np.einsum("mnef,afbmnj->abej", gs_oovv, t3b, optimize=True)
-    I_vvvo += -np.einsum("mnef,afbmnj->abej", g[o, o, v, v], t3c, optimize=True)
-    I_vvvo += H2[v, v, v, o]
-    
-    I_ovoo = 0.5 * np.einsum("mnef,efbinj->mbij", gs_oovv, t3b, optimize=True)
-    I_ovoo += np.einsum("mnef,efbinj->mbij", g[o, o, v, v], t3c, optimize=True)
-    I_ovoo += -np.einsum("me,ecjk->mcjk", H1[o, v], t2, optimize=True)
-    I_ovoo += H2[o, v, o, o]
-
-    I_vvov = -np.einsum("nmfe,afbinm->abie", g[o, o, v, v], t3b, optimize=True)
-    I_vvov += -0.5 * np.einsum("nmfe,afbinm->abie", gs_oovv, t3c, optimize=True)
-    I_vvov += H2[v, v, o, v]
-    
-    I_vooo = np.einsum("nmfe,afeinj->amij", g[o, o, v, v], t3b, optimize=True)
-    I_vooo += 0.5 * np.einsum("nmfe,afeinj->amij", gs_oovv, t3c, optimize=True)
-    I_vooo += -np.einsum("me,aeik->amik", H1[o, v], t2, optimize=True)
-    I_vooo += H2[v, o, o, o]
-
-    # MM(2,3)B
-    triples_res = 0.5 * np.einsum("bcek,aeij->abcijk", I2B_vvvo, t2s, optimize=True)
-    triples_res -= 0.5 * np.einsum("mcjk,abim->abcijk", I2B_ovoo, t2s, optimize=True)
-    triples_res += np.einsum("acie,bejk->abcijk", I2B_vvov, t2, optimize=True)
-    triples_res -= np.einsum("amik,bcjm->abcijk", I2B_vooo, t2, optimize=True)
-    triples_res += 0.5 * np.einsum("abie,ecjk->abcijk", I2A_vvov, t2, optimize=True)
-    triples_res -= 0.5 * np.einsum("amij,bcmk->abcijk", I2A_vooo, t2, optimize=True)
-    # (HBar*T3)_C
-    triples_res -= 0.5 * np.einsum("mi,abcmjk->abcijk", H.a.oo, t3b, optimize=True)
-    triples_res -= 0.25 * np.einsum("mk,abcijm->abcijk", H.b.oo, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("ae,ebcijk->abcijk", H.a.vv, t3b, optimize=True)
-    triples_res += 0.25 * np.einsum("ce,abeijk->abcijk", H.b.vv, t3b, optimize=True)
-    triples_res += 0.125 * np.einsum("mnij,abcmnk->abcijk", H.aa.oooo, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("mnjk,abcimn->abcijk", H.ab.oooo, t3b, optimize=True)
-    triples_res += 0.125 * np.einsum("abef,efcijk->abcijk", H.aa.vvvv, t3b, optimize=True)
-    triples_res += 0.5 * np.einsum("bcef,aefijk->abcijk", H.ab.vvvv, t3b, optimize=True)
-    triples_res += np.einsum("amie,ebcmjk->abcijk", H.aa.voov, t3b, optimize=True)
-    triples_res += np.einsum("amie,becjmk->abcijk", H.ab.voov, t3c, optimize=True)
-    triples_res += 0.25 * np.einsum("mcek,abeijm->abcijk", H.ab.ovvo, t3a, optimize=True)
-    triples_res += 0.25 * np.einsum("cmke,abeijm->abcijk", H.bb.voov, t3b, optimize=True)
-    triples_res -= 0.5 * np.einsum("amek,ebcijm->abcijk", H.ab.vovo, t3b, optimize=True)
-    triples_res -= 0.5 * np.einsum("mcie,abemjk->abcijk", H.ab.ovov, t3b, optimize=True)
-    triples_res -= np.transpose(triples_res, (1, 0, 2, 3, 4, 5))
-    triples_res -= np.transpose(triples_res, (0, 1, 2, 4, 3, 5))
-    return triples_res
-
+    # -h2(amij) * t2(bcmk)
+    triples_res = -np.einsum("amij,bcmk->abcijk", I_vooo, t2, optimize=True)
+    # h2(abie) * t2(bcek)
+    triples_res += np.einsum("abie,ecjk->abcijk", I_vvov, t2, optimize=True)
+    # [1 + P(ai/bj)][1 + P(ai/ck) + P(bj/ck)] = 1 + P(ai/bj) + P(ai/ck) + P(bj/ck) + P(ai/bj)P(ai/ck) + P(ai/bj)P(bj/ck)
+    triples_res += (    triples_res.transpose(1, 0, 2, 4, 3, 5)   # (ij)(ab)
+                      + triples_res.transpose(2, 1, 0, 5, 4, 3)   # (ac)(ik)
+                      + triples_res.transpose(0, 2, 1, 3, 5, 4)   # (bc)(jk)
+                      + triples_res.transpose(2, 0, 1, 5, 3, 4)   # (ab)(ij)(ac)(ik)
+                      + triples_res.transpose(1, 2, 0, 4, 5, 3) ) # (ab)(ij)(bc)(jk)
+    return triples_res * e_abcijk
 
 def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi):
     """Solve the CCSDT system of nonlinear equations using Jacobi iterations
@@ -168,39 +177,39 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
     n = np.newaxis
     e_abcijk = 1.0 / (- eps[v, n, n, n, n, n] - eps[n, v, n, n, n, n] - eps[n, n, v, n, n, n]
                     + eps[n, n, n, o, n, n] + eps[n, n, n, n, o, n] + eps[n, n, n, n, n, o] + energy_shift )
+    e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
     e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o] + energy_shift )
     e_ai = 1.0 / (-eps[v, n] + eps[n, o] + energy_shift )
 
     nunocc, nocc = e_ai.shape
     n1 = nocc * nunocc
     n2 = nocc**2 * nunocc**2
-    n3 = nocc**3 * nunocc**3
-    ndim = n1 + n2 + n3
+    ndim = n1 + n2
 
     diis_engine = DIIS(ndim, diis_size, out_of_core)
 
     t1 = np.zeros((nunocc, nocc))
     t2 = np.zeros((nunocc, nunocc, nocc, nocc))
-    t3 = np.zeros((nunocc, nunocc, nunocc, nocc, nocc, nocc))
 
     old_energy = rcc_energy(t1, t2, fock, g, o, v)
 
-    print("    ==> R-CCSDT amplitude equations <==")
+    print("    ==> R-CC3 amplitude equations <==")
     print("")
     print("     Iter               Energy                 |dE|                 |dT|")
     for idx in range(maxit):
 
         tic = time.time()
 
+        # Compute T3 using the perturbative approximation of CC3
+        I_vooo, I_vvov = compute_ccs_intermediates(fock, g, t1, t2, o, v)
+        t3 = compute_t3(I_vooo, I_vvov, t2, e_abcijk)
         residual_singles = singles_residual(t1, t2, t3, fock, g, o, v)
         residual_doubles = doubles_residual(t1, t2, t3, fock, g, o, v)
-        residual_triples = triples_residual(t1, t2, t3, fock, g, o, v)
 
-        res_norm = np.linalg.norm(residual_singles) + np.linalg.norm(residual_doubles) + np.linalg.norm(residual_triples)
+        res_norm = np.linalg.norm(residual_singles) + np.linalg.norm(residual_doubles)
 
         t1 += residual_singles * e_ai
         t2 += residual_doubles * e_abij
-        t3 += residual_triples * e_abcijk
 
         current_energy = rcc_energy(t1, t2, fock, g, o, v)
         delta_e = np.abs(old_energy - current_energy)
@@ -209,13 +218,12 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
             break
  
         if idx >= n_start_diis:
-            diis_engine.push( (t1, t2, t3), (residual_singles, residual_doubles, residual_triples), idx) 
+            diis_engine.push( (t1, t2), (residual_singles, residual_doubles), idx) 
 
         if idx >= diis_size + n_start_diis:
             T_extrap = diis_engine.extrapolate()
             t1 = T_extrap[:n1].reshape((nunocc, nocc))
-            t2 = T_extrap[n1:n1+n2].reshape((nunocc, nunocc, nocc, nocc))
-            t3 = T_extrap[n1+n2:].reshape((nunocc, nunocc, nunocc, nocc, nocc, nocc))
+            t2 = T_extrap[n1:].reshape((nunocc, nunocc, nocc, nocc))
 
         old_energy = current_energy
 
@@ -223,11 +231,11 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
         minutes, seconds = divmod(toc - tic, 60)
         print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
     else:
-        raise ValueError("CCSDT iterations did not converge")
+        raise ValueError("CC3 iterations did not converge")
 
     diis_engine.cleanup()
     e_corr = rcc_energy(t1, t2, fock, g, o, v)
 
-    return (t1, t2, t3), e_corr
+    return (t1, t2), e_corr
 
 
