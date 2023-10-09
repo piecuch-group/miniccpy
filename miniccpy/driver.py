@@ -333,7 +333,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("")
         print("    Largest Singly and Doubly Excited Amplitudes")
         print("    --------------------------------------------")
-        if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomcc3", "eomcc3-lin"]:
+        if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
             print_amplitudes(R[n][0], R[n][1], 0.025, rhf=flag_rhf)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
