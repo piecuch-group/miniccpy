@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from miniccpy.driver import run_scf, run_cc_calc
 
 from miniccpy.hbar import get_rccs_intermediates, get_rccsd_intermediates
@@ -64,7 +65,7 @@ def exact_triples_res(t1, t2, t3, f, g, o, v):
     # (HBar*T3)_C
     triples_res = 0.5 * np.einsum("ae,ebcijk->abcijk", H1[v, v], t3, optimize=True)
     triples_res -= 0.5 * np.einsum("mi,abcmjk->abcijk", H1[o, o], t3, optimize=True)
-    #triples_res += 0.5 * np.einsum("mnij,abcmnk->abcijk", H2[o, o, o, o], t3, optimize=True)
+    triples_res += 0.5 * np.einsum("mnij,abcmnk->abcijk", H2[o, o, o, o], t3, optimize=True)
     triples_res += 0.5 * np.einsum("abef,efcijk->abcijk", H2[v, v, v, v], t3, optimize=True)
     triples_res += 0.5 * np.einsum("amie,ebcmjk->abcijk", H2[v, o, o, v], t3_s, optimize=True)
     # expanding out spin-summed vertex
@@ -166,7 +167,7 @@ def triples_res_110111(t1, t2, t3, f, g, o, v, P, p, H, h):
     #triples_res -= np.einsum("bmei,eacjmk->abcijk", H2[v, o, v, o], t3, optimize=True)
     #triples_res += triples_res.transpose(1, 0, 2, 4, 3, 5) # P(AI/BJ)
     #triples_res = d1 + d2# + d3# + d4# + d5
-    triples_res = d1 + d2 + d5 + d4
+    triples_res = d1 + d2 + d3 + d4 + d5
     return triples_res
 
 def triples_res_111011(t1, t2, t3, f, g, o, v, P, p, H, h):
@@ -198,7 +199,7 @@ def triples_res_100001(t1, t2, t3, f, g, o, v, P, p, H, h):
     return
 
 if __name__ == "__main__":
-    basis = 'aug-cc-pvdz'
+    basis = 'cc-pvdz'
     nfrozen = 0
 
     nacto = 3
@@ -223,10 +224,15 @@ if __name__ == "__main__":
     #assert np.allclose(-0.221558736943, E_corr, atol=1.0e-08)
 
     t1, t2, t3 = T
+    tic = time.time()
     t3 = zero_outside_active_space(t3, nacto, nactu)
+    print("Space zeroing took", time.time() - tic, "s")
+    tic = time.time()
     x3 = exact_triples_res(t1, t2, t3, fock, g, o, v)
-
+    print("Exact update took", time.time() - tic, "s")
+    tic = time.time()
     x3_110111 = triples_res_110111(t1, t2, t3, fock, g, o, v, P, p, H, h) 
+    print("110111 update took", time.time() - tic, "s")
     print("Error in 110111 = ", np.linalg.norm(x3[P, P, p, H, H, H] - x3_110111))
 
 

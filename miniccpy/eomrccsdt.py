@@ -345,5 +345,11 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
               + X3.transpose(0, 2, 1, 3, 5, 4)   # (bc)(jk)
               + X3.transpose(2, 0, 1, 5, 3, 4)   # (ab)(ij)(ac)(ik)
               + X3.transpose(1, 2, 0, 4, 5, 3) ) # (ab)(ij)(bc)(jk)
+    # Manually zero out the i = j = k and a = b = c blocks
+    nu, no = r1.shape
+    for i in range(no):
+        X3[:, :, :, i, i, i] *= 0.0
+    for a in range(nu):
+        X3[a, a, a, :, :, :] *= 0.0
     return X3
 

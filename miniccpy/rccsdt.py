@@ -151,6 +151,12 @@ def triples_residual(t1, t2, t3, f, g, o, v):
                       + triples_res.transpose(0, 2, 1, 3, 5, 4)   # (bc)(jk)
                       + triples_res.transpose(2, 0, 1, 5, 3, 4)   # (ab)(ij)(ac)(ik)
                       + triples_res.transpose(1, 2, 0, 4, 5, 3) ) # (ab)(ij)(bc)(jk)
+    # Manually zero out the i = j = k and a = b = c blocks
+    nu, no = t1.shape
+    for i in range(no):
+        triples_res[:, :, :, i, i, i] *= 0.0
+    for a in range(nu):
+        triples_res[a, a, a, :, :, :] *= 0.0
     return triples_res
 
 
