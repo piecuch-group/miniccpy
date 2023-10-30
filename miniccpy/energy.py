@@ -1,5 +1,28 @@
 import numpy as np
 
+def cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v):
+    # orbital slicing (correlated section, excluding frozen core)
+    no, nu = fock[o, v].shape
+    corr_o = slice(0, no)
+    corr_v = slice(no, no + nu)
+
+    # One-electron energy
+    e_ov = np.einsum("ia,ia->", fock[o, v], rdm1[corr_o, corr_v])
+    e_vo = np.einsum("ai,ai->", fock[v, o], rdm1[corr_v, corr_o])
+    e_oo = np.einsum('ij,ij->', fock[o, o], rdm1[corr_o, corr_o])
+    e_vv = np.einsum('ab,ab->', fock[v, v], rdm1[corr_v, corr_v])
+    onebody = e_ov + e_vo + e_oo + e_vv
+    # Two-electron energy
+    e_oooo = 0.5 * np.einsum('ijkl,ijkl->', g[o, o, o, o], rdm2[corr_o, corr_o, corr_o, corr_o])
+    e_vvvv = 0.5 * np.einsum('abcd,abcd->', g[v, v, v, v], rdm2[corr_v, corr_v, corr_v, corr_v])
+    e_ooov = np.einsum('ijka,ijka->', g[o, o, o, v], rdm2[corr_o, corr_o, corr_o, corr_v])
+    e_vvvo = np.einsum('abci,abci->', g[v, v, v, o], rdm2[corr_v, corr_v, corr_v, corr_o])
+    e_ovov = np.einsum('iajb,iajb->', g[o, v, o, v], rdm2[corr_o, corr_v, corr_o, corr_v])
+    e_oovv = 0.5 * np.einsum('ijab,ijab->', g[o, o, v, v], rdm2[corr_o, corr_o, corr_v, corr_v])
+    twobody = e_oooo + e_vvvv + e_ooov + e_vvvo + e_ovov + e_oovv
+    energy = onebody + twobody
+    return energy
+
 def cc_energy(t1, t2, f, g, o, v):
     """ Calculate the ground-state CC correlation energy defined by
     < 0 | exp(-T) H_N exp(T) | 0> = < i | f | a > < a | t1 | i > 

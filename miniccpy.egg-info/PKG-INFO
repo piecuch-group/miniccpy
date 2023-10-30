@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: miniccpy
-Version: 0+untagged.16.g3c93e5d.dirty
+Version: 0+untagged.56.g1594be5
 Summary: A small Python package for spin-orbital coupled-cluster computations
 Author: Karthik Gururangan
 Author-email: gururang@msu.edu
@@ -11,15 +11,32 @@ License-File: LICENSE
 # Miniccpy:
 
 Miniccpy is a small, general spin-orbital coupled-cluster (CC) package written in Python that implements
-the standard ground-state single-reference CC approximations, such as CCSD, CCSDT, and CCSDTQ,
-and a subset of their equation-of-motion (EOM) extensions, including EOMCCSD and EOMCCSDT, for describing
-excited electronic states. At the moment, this package simply serves as a freely available demonstration
-for how to program high-level CC/EOMCC methodologies in Python using Numpy. However, due to its generic
-spin-orbital nature, it can, in principle, be used to perform fully relativistic calculations for 
-electronic, or even nuclear, structure.
+the several ground-state single-reference CC and equation-of-motion (EOM) CC approximations, in addition
+to some of the particle nonconserving EOMCC approximations of the electron attachment (EA) and ionization 
+potential (IP) types. Miniccpy serves as a freely available demonstration for how to program CC/EOMCC 
+methodologies in Python using Numpy, and it is a useful sandbox for exploring the development and implementation
+of new methodologies. However, due to its generic spin-orbital nature, it can, in principle, also be used to 
+perform fully relativistic calculations for electronic, or even nuclear, structure.
 
-Miniccpy only deals with the correlated CC computation and uses Pyscf under the hood to obtain the starting 
-Hartree-Fock solution and the associated one- and two-body molecular orbital integrals.
+A current list of available computational options includes:
+
+### Ground-state CC methodologies
+- CCD
+- CCSD
+- CC3
+- CCSDT
+- CCSDTQ
+### Excited-state EOMCC methodologies 
+- EOMCCSD
+- EOM-CC3
+- EOMCCSDT
+- IP-EOMCC(2h-1p)
+- IP-EOMCC(3h-2p)
+- EA-EOMCC(2p-1h)
+- EA-EOMCC(3p-2h)
+
+Miniccpy only deals with the correlated CC computation and uses interfaces to PySCF or GAMESS under the hood
+to obtain the starting Hartree-Fock solution and the associated one- and two-body molecular orbital integrals.
 
 # Contact
 Karthik Gururangan - gururang@msu.edu
