@@ -9,7 +9,7 @@ modules = glob.glob(join(dirname(__file__), "*.py"))
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f) and not f.endswith('__init__.py')]
 MODULES = [module for module in __all__]
 # Manually specify those modules that are RHF non-orthogonally spin-adapted codes
-RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
+RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "left_eomrccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
@@ -154,7 +154,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
 
     return T, e_corr
 
-def run_leftcc_calc(T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False):
+def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, davidson=False):
     """Run the ground-state left-CC calculation specified by `method`."""
     from miniccpy.printing import print_amplitudes
 
@@ -170,14 +170,13 @@ def run_leftcc_calc(T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, ener
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
-
     # Turn off DIIS for small systems; it becomes singular!
     if H1.shape[0] <= 4: 
         print("Turning off DIIS acceleration for small system")
         diis_size = 1000 
-
+    # Run the linear equation solver
     tic = time.time()
-    L, omega = calculation(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    L, omega = calculation(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
@@ -190,38 +189,7 @@ def run_leftcc_calc(T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, ener
     print("")
     print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
-
     return L
-
-def run_correction(T, fock, g, o, v, method): 
-    """Run the ground-state CC correction specified by `method`."""
-    from miniccpy.energy import cc_energy
-
-    # check if requested CC calculation is implemented in modules
-    if method not in MODULES:
-        raise NotImplementedError(
-            "{} not implemented".format(method)
-        )
-    # import the specific CC method module and get its update function
-    mod = import_module("miniccpy."+method.lower())
-    calculation = getattr(mod, 'kernel')
-
-
-    tic = time.time()
-    e_correction = calculation(T, fock, g, o, v)
-    corr_energy = cc_energy(T[0], T[1], fock, g, o, v)
-    toc = time.time()
-
-    minutes, seconds = divmod(toc - tic, 60)
-
-    print("")
-    print("    CCSD(T) correction energy: {: 20.12f}".format(e_correction))
-    print("    CCSD(T) correlation energy: {: 20.12f}".format(e_correction + corr_energy))
-    print("")
-    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
-    print("")
-
-    return e_correction
 
 def get_hbar(T, fock, g, o, v, method):
     """Obtain the similarity-transformed Hamiltonian Hbar corresponding
@@ -341,5 +309,96 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
 
     return R, omega, r0
 
+def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, max_size=20):
+    from miniccpy.printing import print_amplitudes
+    from miniccpy.utilities import biorthogonalize
+    # check if requested EOMCC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    if method in RHF_MODULES:
+        flag_rhf = True
+    else:
+        flag_rhf = False
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
 
+    nroot = len(R)
 
+    L = [0 for i in range(nroot)]
+    omega = [0 for i in range(nroot)]
+    for n in range(nroot):
+        print(f"    Solving for state #{n + 1}")
+        tic = time.time()
+        L[n], omega[n] = calculation(R[n], T, omega0[n], H1, H2, o, v, maxit, convergence, max_size=max_size)
+        toc = time.time()
+
+        minutes, seconds = divmod(toc - tic, 60)
+
+        print("")
+        print("    Left-EOMCC Excitation Energy: {: 20.12f}".format(omega[n]))
+        print("")
+        print("    Largest Singly and Doubly Excited Amplitudes")
+        print("    --------------------------------------------")
+        print_amplitudes(L[n][0], L[n][1], 0.025, rhf=flag_rhf)
+        print("")
+        print("    Left-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        print("")
+
+    #print("   Biorthonormality Check")
+    #Rmat = np.asarray([np.hstack([r1.flatten(), r2.flatten()]) for r1, r2 in R]).T
+    #Lmat = np.asarray([np.hstack([l1.flatten(), l2.flatten()]) for l1, l2 in L])
+    #Lmat = biorthogonalize(Lmat, Rmat)
+    #print("   |LR - 1| = ", np.linalg.norm(np.dot(Lmat, Rmat) - np.eye(nroot)))
+
+    return L, omega
+
+def run_correction(T, L, H1, H2, o, v, method): 
+    """Run the ground-state CC correction specified by `method`."""
+
+    # check if requested CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    tic = time.time()
+    e_correction = calculation(T, L, H1, H2, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+
+    print("")
+    print("    Triples correction energy: {: 20.12f}".format(e_correction))
+    print("")
+    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+    return e_correction
+
+def run_eom_correction(T, R, L, r0, omega, H1, H2, o, v, method): 
+    """Run the ground-state EOMCC correction specified by `method`."""
+
+    # check if requested CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    tic = time.time()
+    e_correction = calculation(T, R, L, r0, omega, H1, H2, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+
+    print("")
+    print("    Triples correction energy: {: 20.12f}".format(e_correction))
+    print("")
+    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("")
+    return e_correction

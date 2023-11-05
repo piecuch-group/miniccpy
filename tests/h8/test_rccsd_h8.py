@@ -22,9 +22,12 @@ T, E_corr = run_cc_calc(fock, g, o, v, method='rccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method="rccsd")
 L = run_leftcc_calc(T, H1, H2, o, v, method="left_rccsd")
 
-rdm1 = build_rdm1(T, L, o, v)
-rdm2 = build_rdm2(T, L, o, v)
-cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
+rdm1 = build_rdm1(T, L)
+rdm2 = build_rdm2(T, L)
+E_corr2 = cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
+
+print("CC energy = ", E_corr)
+print("CC energy from RDMs = ", E_corr2)
 
 
 

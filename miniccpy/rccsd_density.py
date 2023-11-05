@@ -66,7 +66,8 @@ def build_Dvvvv(t1, t2, l2):
     return np.einsum('abmn,cdmn->abcd', build_tau(t1, t2), l2)
 
 def build_Dooov(t1, t2, l1, l2):
-    tmp = 2.0 * build_tau(t1, t2) - build_tau(t1, t2).swapaxes(2, 3)
+    tau = build_tau(t1, t2)
+    tmp = 2.0 * tau - tau.transpose(0, 1, 3, 2)
     Dooov = -1.0 * np.einsum('ek,eaij->ijka', l1, tmp)
     Dooov -= np.einsum('ei,aejk->ijka', t1, l2)
 
@@ -90,7 +91,8 @@ def build_Dooov(t1, t2, l1, l2):
     return Dooov
 
 def build_Dvvvo(t1, t2, l1, l2):
-    tmp = 2.0 * build_tau(t1, t2) - build_tau(t1, t2).swapaxes(2, 3)
+    tau = build_tau(t1, t2)
+    tmp = 2.0 * tau - tau.transpose(0, 1, 3, 2)
     Dvvvo = np.einsum('cm,abmi->abci', l1, tmp)
     Dvvvo += np.einsum('am,bcim->abci', t1, l2)
         
@@ -122,19 +124,20 @@ def build_Dovov(t1, t2, l1, l2):
 def build_Doovv(t1, t2, l1, l2):
 
     tau = build_tau(t1, t2)
-    tau_spinad = 2.0 * tau - tau.swapaxes(2,3)
+    # spin-summed tau
+    tau_ss = 2.0 * tau - tau.transpose(0, 1, 3, 2)
 
     Doovv = 4.0 * np.einsum('ai,bj->ijab', t1, l1)
-    Doovv += 2.0 * tau_spinad.transpose(2, 3, 0, 1)
+    Doovv += 2.0 * tau_ss.transpose(2, 3, 0, 1)
     Doovv += l2.transpose(2, 3, 0, 1)
 
-    tmp1 = 2.0 * t2 - t2.swapaxes(2,3)
+    tmp1 = 2.0 * t2 - t2.transpose(0, 1, 3, 2)
     tmp2 = 2.0 * np.einsum('em,bejm->jb', l1, tmp1)
     Doovv += 2.0 * np.einsum('jb,ai->ijab', tmp2, t1)
     Doovv -= np.einsum('ja,bi->ijab', tmp2, t1)
     tmp2 = 2.0 * np.einsum('ebij,em->ijmb', tmp1, l1)
     Doovv -= np.einsum('ijmb,am->ijab', tmp2, t1)
-    tmp2 = 2.0 * np.einsum('bajm,em->jeba', tau_spinad, l1)
+    tmp2 = 2.0 * np.einsum('bajm,em->jeba', tau_ss, l1)
     Doovv -= np.einsum('jeba,ei->ijab', tmp2, t1)
 
     Doovv += 4.0 * np.einsum('aeim,ebmj->ijab', t2, l2)
@@ -150,7 +153,7 @@ def build_Doovv(t1, t2, l1, l2):
     Doovv += 4.0 * np.einsum('eb,aeij->ijab', Gvv, tau)
     Doovv -= 2.0 * np.einsum('ea,beij->ijab', Gvv, tau)
     Goo = build_Goo(t2, l2)
-    Doovv -= 4.0 * np.einsum('jm,abim->ijab', Goo, tau)  # use tau_spinad?
+    Doovv -= 4.0 * np.einsum('jm,abim->ijab', Goo, tau) 
     Doovv += 2.0 * np.einsum('jm,baim->ijab', Goo, tau)
     tmp1 = np.einsum('afin,efmn->iame', t2, l2)
     Doovv -= 4.0 * np.einsum('iame,bemj->ijab', tmp1, tau)
