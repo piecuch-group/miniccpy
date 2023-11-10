@@ -194,7 +194,6 @@ def build_hbar_rccsd(T, f, g, o, v):
     I_oovo = g[o, o, v, o] + 0.5 * Q1
     H2[o, o, v, o] = I_oovo + 0.5 * Q1
 
-
     H2[v, v, v, v] = g[v, v, v, v] + (
                 - np.einsum("mbef,am->abef", I_ovvv, t1, optimize=True)
                 - np.einsum("amef,bm->abef", I_vovv, t1, optimize=True)

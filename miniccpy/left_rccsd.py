@@ -58,12 +58,12 @@ def LH_doubles(l1, l2, t2, H1, H2, I, o, v):
     LH += LH.transpose(1, 0, 3, 2)
     return LH
 
-def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
+def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
     """Solve the left-CCSD system of nonlinear equations using Jacobi iterations
     with DIIS acceleration. The initial values of the L amplitudes are taken as T."""
 
     omega = 0.0
-    eps = np.diagonal(H1)
+    eps = np.diagonal(fock)
     n = np.newaxis
     e_abij = 1.0 / (eps[v, n, n, n] + eps[n, v, n, n] - eps[n, n, o, n] - eps[n, n, n, o] - omega + energy_shift)
     e_ai = 1.0 / (eps[v, n] - eps[n, o] - omega + energy_shift)
@@ -94,11 +94,14 @@ def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start
         lh1 = LH_singles(l1, l2, t2, H1, H2, I, o, v)
         lh2 = LH_doubles(l1, l2, t2, H1, H2, I, o, v)
 
+
         lh1 = (omega * l1 - lh1) * e_ai
         lh2 = (omega * l2 - lh2) * e_abij
         l1 += lh1
         l2 += lh2
 
+        #print("|LH1| = ", np.sum(abs(lh1.flatten())))
+        #print("|LH2| = ", np.sum(abs(lh2.flatten())))
         res_norm = np.linalg.norm(lh1.flatten()) + np.linalg.norm(lh2.flatten())
         current_energy = lcc_energy(l1, l2, lh1, lh2) + omega
         delta_e = np.abs(old_energy - current_energy)
@@ -107,11 +110,11 @@ def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start
             break
 
         if idx >= n_start_diis:
-            diis_engine.push( (l1, l2), (lh1, lh2), idx) 
+           diis_engine.push( (l1, l2), (lh1, lh2), idx)
         if idx >= diis_size + n_start_diis:
-            L_extrap = diis_engine.extrapolate()
-            l1 = L_extrap[:n1].reshape((nunocc, nocc))
-            l2 = L_extrap[n1:].reshape((nunocc, nunocc, nocc, nocc))
+           L_extrap = diis_engine.extrapolate()
+           l1 = L_extrap[:n1].reshape((nunocc, nocc))
+           l2 = L_extrap[n1:].reshape((nunocc, nunocc, nocc, nocc))
 
         old_energy = current_energy
 
@@ -119,7 +122,7 @@ def kernel(T, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start
         minutes, seconds = divmod(toc - tic, 60)
         print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
     else:
-        raise ValueError("left-CCSD iterations did not converge")
+        print("left-CCSD iterations did not converge")
 
     diis_engine.cleanup()
     e_corr = lcc_energy(l1, l2, lh1, lh2)
