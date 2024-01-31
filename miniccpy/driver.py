@@ -205,8 +205,8 @@ def get_hbar(T, fock, g, o, v, method):
 
 def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.025, mult=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess
-    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector
+    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess
+    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector
 
     no, nu = H1[o, v].shape
 
@@ -229,6 +229,9 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
     elif method == "ipcis":
         nroot = min(nroot, no)
         R0, omega0 = ipcis_guess(H1, H2, o, v, nroot)
+    elif method == "dipcis":
+        nroot = min(nroot, no**2)
+        R0, omega0 = dipcis_guess(H1, H2, o, v, nroot)
 
     # Convert initial vector to real
     R0 = np.real(R0)
@@ -251,6 +254,8 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.0
             print_1h_vector(R0[:, i], nu, print_threshold=print_threshold)
         elif method == "deacis":
             print_2p_vector(R0[:nu**2, i].reshape(nu, nu), no, print_threshold=print_threshold)
+        elif method == "dipcis":
+            print_2h_vector(R0[:no**2, i].reshape(no, no), nu, print_threshold=print_threshold)
         print("")
     print("")
 

@@ -149,6 +149,28 @@ def deacis_guess(f, g, o, v, nroot, nactu):
 
     return R_guess, omega[:nroot]
 
+def dipcis_guess(f, g, o, v, nroot):
+    """Obtain the lowest `nroot` roots of the 2h Hamiltonian
+    to serve as the initial guesses for the DIP-EOMCC calculations."""
+
+    H = build_2h_hamiltonian(f, g, o, v)
+    omega, C = np.linalg.eig(H)
+    idx = np.argsort(omega)
+    omega = omega[idx]
+    C = np.real(C[:, idx])
+
+    no, nu = f[o, v].shape
+    n1 = no**2
+
+    R_guess = np.zeros((n1, nroot))
+    for i in range(nroot):
+        R_guess[:, i] = dipcis_scatter(C[:, i], no)
+        
+    # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+    R_guess, _ = np.linalg.qr(R_guess[:, :nroot])
+
+    return R_guess, omega[:nroot]
+
 def eacis_guess(f, g, o, v, nroot):
     """Obtain the lowest `nroot` roots of the 1p Hamiltonian
     to serve as the initial guesses for the EA-EOMCC calculations."""
@@ -222,6 +244,18 @@ def deacis_scatter(V_in, nactu, no, nu):
                 offset += 1
     return V1_out.flatten()
 
+def dipcis_scatter(V_in, no):
+
+    # allocate full-length output vector
+    V1_out = np.zeros((no, no))
+    # Start filling in the array
+    offset = 0
+    for i in range(no):
+        for j in range(i + 1, no):
+            V1_out[i, j] = V_in[offset]
+            V1_out[j, i] = -V_in[offset]
+            offset += 1
+    return V1_out.flatten()
 
 def build_cisd_hamiltonian(fock, g, o, v, nacto, nactu):
 
@@ -499,6 +533,30 @@ def build_2p_hamiltonian(f, g, o, v, nactu):
                         -(b == c) * f[v, v][a, d]
                         +(a == c) * f[v, v][b, d]
                         + g[v, v, v, v][a, b, c, d]
+                    )
+                    ct2 += 1
+            ct1 += 1
+
+    return H
+
+def build_2h_hamiltonian(f, g, o, v):
+    # get orbital parameters
+    no, nu = f[o, v].shape
+    # allocate active-space 2p hamiltonian
+    ndim = int(no * (no - 1) / 2)
+    H = np.zeros((ndim, ndim))
+    ct1 = 0
+    for i in range(no):
+        for j in range(i + 1, no):
+            ct2 = 0
+            for k in range(no):
+                for l in range(k + 1, no):
+                    H[ct1, ct2] = (
+                        -(j == l) * f[o, o][k, i]
+                        +(i == l) * f[o, o][k, j]
+                        +(j == k) * f[o, o][l, i]
+                        -(i == k) * f[o, o][l, j]
+                        + g[o, o, o, o][k, l, i, j]
                     )
                     ct2 += 1
             ct1 += 1

@@ -205,6 +205,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
         - np.einsum("bmje,ec->bcmj", H2[v, o, o, v], r1, optimize=True)
         + 0.5 * np.einsum("amfe,fbek->abmk", H2[v, o, v, v], r2, optimize=True)
         + (1.0 / 4.0) * np.einsum("mnef,abefkn->abmk", H2[o, o, v, v], r3, optimize=True)
+        # contribution from 4-body HBar here
         - (1.0 / 4.0) * np.einsum("mn,bcnk->bcmk", I_oo, t2, optimize=True) # an extra factor of 1/2 applied here compensate. Net weight should be (6.0 / 48.0) in final contraction.
     )
     # antisymmetrize A(ab)
