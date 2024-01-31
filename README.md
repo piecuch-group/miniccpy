@@ -51,5 +51,16 @@ allows for highly efficient computations, although it is only applicable to sing
 - EOMCCSD
 - EOMCCSDT
 
-# Contact
-Karthik Gururangan - gururang@msu.edu
+</p>
+
+## Development Team
+
+Karthik Gururangan  
+Doctoral student, Department of Chemistry, Michigan State University  
+e-mail: gururang@msu.edu  
+
+Professor Piotr Piecuch  
+University Distinguished Professor and Michigan State University Foundation Professor, Department of Chemistry, Michigan State University  
+Adjunct Professor, Department of Physics and Astronomy, Michigan State University
+
+<p align="justify">
