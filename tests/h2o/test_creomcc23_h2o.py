@@ -29,15 +29,14 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method="ccsd")
 L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_ccsd")
-delta_T = run_correction(T, L, H1, H2, o, v, method="crcc23")
+delta_T = run_correction(T, L, fock, H1, H2, o, v, method="crcc23")
 
 R0, omega0 = run_guess(H1, H2, o, v, 5, method="cis", mult=1)
 R, omega, r0 = run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method='eomccsd', state_index=[0], maxit=200)
 L, omega_left = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method='left_eomccsd', maxit=200)
 
 for i in range(len(R)):
-    print("Left = ", omega_left[i], "Right = ", omega[i])
-    delta_T = run_eom_correction(T, R[i], L[i], r0[i], omega[i], H1, H2, o, v, method="creomcc23")
+    delta_T = run_eom_correction(T, R[i], L[i], r0[i], omega[i], fock, H1, H2, o, v, method="creomcc23")
 
 ### CCpy test ###
 mol = gto.M(atom=geom, symmetry="C2V", basis=basis, unit="Bohr")

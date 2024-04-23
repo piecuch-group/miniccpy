@@ -25,6 +25,5 @@ elif re == 2:
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
 T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
-delta_T = run_correction(T, None, fock, g, o, v, method="ccsdpt")
+delta_T = run_correction(T, None, fock, None, g, o, v, method="ccsdpt")
 
-print("CCSD(T) Correlation Energy = ", delta_T + Ecorr)

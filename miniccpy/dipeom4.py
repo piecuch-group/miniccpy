@@ -239,6 +239,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
         + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True)
         + 0.5 * np.einsum("nmie,njcm->ijce", H2[o, o, o, v], r2, optimize=True)
         - (1.0 / 4.0) * np.einsum("mnef,ijcfmn->ijce", H2[o, o, v, v], r3, optimize=True)
+        #+ np.einsum("ef,edil->ilfd", I_vv, t2, optimize=True) # should include 4-body Hbar here somehow
     )
     # antisymmetrize A(ij)
     I_oovv -= np.transpose(I_oovv, (1, 0, 2, 3))
@@ -247,7 +248,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", H2[v, v, o, v], r2, optimize=True)
     X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", H2[v, o, o, o], r2, optimize=True)
     X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
-    #X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
+    X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
     # 
     X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True)
     X3 -= (4.0 / 48.0) * np.einsum("mi,mjcdkl->ijcdkl", H1[o, o], r3, optimize=True)
@@ -258,10 +259,11 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     #X3 += (6.0 / 48.0) * np.einsum("cdmkle,abem->abcdkl", I_vvooov, r2, optimize=True)
     #X3 += (8.0 / 96.0) * np.einsum("abcefk,efdl->abcdkl", I_vvvvvo, r2, optimize=True)
     #X3 += (4.0 / 48.0) * np.einsum("cdbkle,ae->abcdkl", I_vvvoov, r1, optimize=True)
-    X3 += (6.0 / 48.0) * np.einsum("ef,edil,fcjk->ijcdkl", I_vv, t2, t2, optimize=True)
     #X3 -= (4.0 / 96.0) * np.einsum("dmnlkf,abcfmn->abcdkl", I_voooov, r3, optimize=True)
     #X3 += (12.0 / 96.0) * np.einsum("dcnlef,abefkn->abcdkl", I_vvoovv, r3, optimize=True)
     ####
+    ### 4-body HBar ###
+    X3 += (6.0 / 48.0) * np.einsum("ef,edil,fcjk->ijcdkl", I_vv, t2, t2, optimize=True)
     # antisymmetrize A(ijkl)A(cd)
     X3 -= np.transpose(X3, (0, 1, 3, 2, 4, 5)) # A(cd)
     X3 -= np.transpose(X3, (0, 4, 2, 3, 1, 5)) # A(jk)

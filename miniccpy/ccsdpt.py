@@ -1,6 +1,9 @@
 import numpy as np
 
-def kernel(T, L, fock, g, o, v):
+def kernel(T, L, fock, H1, g, o, v):
+
+    # Note: H1 should just be None. It's not even used. It's just there
+    # to make the call in run_correction the same for CCSD(T) as for CR-CC(2,3).
 
     t1, t2 = T
     eps = np.diagonal(fock)
@@ -30,4 +33,9 @@ def kernel(T, L, fock, g, o, v):
     L3 += M3
     L3 /= e_abcijk
 
-    return (1.0 / 36.0) * np.einsum("abcijk,abcijk->", L3, M3, optimize=True)
+    # Compute CCSD(T) correction
+    delta_A = (1.0 / 36.0) * np.einsum("abcijk,abcijk->", L3, M3, optimize=True)
+
+    # store results in dictionary
+    delta_T = {"A": delta_A, "B": 0.0, "C": 0.0, "D": 0.0}
+    return delta_T

@@ -363,7 +363,7 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence
 
     return L, omega
 
-def run_correction(T, L, H1, H2, o, v, method): 
+def run_correction(T, L, fock, H1, H2, o, v, method): 
     """Run the ground-state CC correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -376,18 +376,19 @@ def run_correction(T, L, H1, H2, o, v, method):
     calculation = getattr(mod, 'kernel')
 
     tic = time.time()
-    e_correction = calculation(T, L, H1, H2, o, v)
+    e_correction = calculation(T, L, fock, H1, H2, o, v)
     toc = time.time()
     minutes, seconds = divmod(toc - tic, 60)
 
     print("")
-    print("    Triples correction energy: {: 20.12f}".format(e_correction))
+    for key, value in e_correction.items():
+        print(f"    Triples correction energy ({key}): {value}")
     print("")
     print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
     return e_correction
 
-def run_eom_correction(T, R, L, r0, omega, H1, H2, o, v, method): 
+def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method): 
     """Run the ground-state EOMCC correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -400,13 +401,14 @@ def run_eom_correction(T, R, L, r0, omega, H1, H2, o, v, method):
     calculation = getattr(mod, 'kernel')
 
     tic = time.time()
-    e_correction = calculation(T, R, L, r0, omega, H1, H2, o, v)
+    e_correction = calculation(T, R, L, r0, omega, fock, H1, H2, o, v)
     toc = time.time()
     minutes, seconds = divmod(toc - tic, 60)
 
     print("")
-    print("    Triples correction energy: {: 20.12f}".format(e_correction))
+    for key, value in e_correction.items():
+        print(f"    Triples correction energy ({key}): {value}")
     print("")
-    print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
     return e_correction

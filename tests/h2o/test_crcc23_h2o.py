@@ -30,3 +30,18 @@ L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_ccsd")
 delta_T = run_correction(T, L, H1, H2, o, v, method="crcc23")
 
 print("CR-CC(2,3)B Correlation Energy = ", delta_T + Ecorr)
+
+
+
+#from ccpy.drivers.driver import Driver
+#from pyscf import gto, scf
+
+#mol = gto.M(atom=geom, basis=basis, spin=0, symmetry="C2V", unit="Bohr")
+#mf = scf.RHF(mol)
+#mf.kernel()
+
+#driver = Driver.from_pyscf(mf, nfrozen=0)
+#driver.run_cc(method="ccsd")
+#driver.run_hbar(method="ccsd")
+#driver.run_leftcc(method="left_ccsd")
+#driver.run_ccp3(method="crcc23")
