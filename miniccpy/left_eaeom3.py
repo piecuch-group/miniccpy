@@ -44,21 +44,21 @@ def build_LH2(l1, l2, l3, t2, H1, H2, X, o, v):
     #
     # 3-body hbar
     # 
-    #LH -= np.einsum("ejfb,afe->abj", H2[v, o, v, v], X["vvv"], optimize=True)
-    #LH += np.einsum("jmna,mbn->abj", H2[o, o, o, v], X["ovo"], optimize=True)
-    #LH -= 0.5 * np.einsum("emba,mej->abj", H2[v, o, v, v], X["ovo"], optimize=True)
+    LH -= np.einsum("ejfb,afe->abj", H2[v, o, v, v], X["vvv"], optimize=True)
+    LH += np.einsum("jmna,mbn->abj", H2[o, o, o, v], X["ovo"], optimize=True)
+    LH -= 0.5 * np.einsum("emba,mej->abj", H2[v, o, v, v], X["ovo"], optimize=True)
 
-    h_vvooov = (
-                 -(2.0 / 4.0) * np.einsum("nmje,abin->abmije", H2[o, o, o, v], t2, optimize=True)
-                 +(2.0 / 4.0) * np.einsum("bmfe,afij->abmije", H2[v, o, v, v], t2, optimize=True)
-    )
-    h_vvooov -= np.transpose(h_vvooov, (1, 0, 2, 3, 4, 5)) # (ab)
-    h_vvooov -= np.transpose(h_vvooov, (0, 1, 2, 4, 3, 5)) # (ij)
-    LH += 0.25 * np.einsum("aefmn,efjmnb->abj", l3, h_vvooov, optimize=True)
+    #h_vvooov = (
+    #             -(2.0 / 4.0) * np.einsum("nmje,abin->abmije", H2[o, o, o, v], t2, optimize=True)
+    #             +(2.0 / 4.0) * np.einsum("bmfe,afij->abmije", H2[v, o, v, v], t2, optimize=True)
+    #)
+    #h_vvooov -= np.transpose(h_vvooov, (1, 0, 2, 3, 4, 5)) # (ab)
+    #h_vvooov -= np.transpose(h_vvooov, (0, 1, 2, 4, 3, 5)) # (ij)
+    #LH += 0.25 * np.einsum("aefmn,efjmnb->abj", l3, h_vvooov, optimize=True)
     #
-    h_vvvvvo = -(3.0 / 6.0) * np.einsum("anef,bcnk->abcefk", H2[v, o, v, v], t2, optimize=True)
-    h_vvvvvo -= np.transpose(h_vvvvvo, (1, 0, 2, 3, 4, 5)) + np.transpose(h_vvvvvo, (2, 1, 0, 3, 4, 5)) # antisymmetrize A(a/bc)
-    h_vvvvvo -= np.transpose(h_vvvvvo, (0, 2, 1, 3, 4, 5)) # antisymmetrize A(bc)
+    #h_vvvvvo = -(3.0 / 6.0) * np.einsum("anef,bcnk->abcefk", H2[v, o, v, v], t2, optimize=True)
+    #h_vvvvvo -= np.transpose(h_vvvvvo, (1, 0, 2, 3, 4, 5)) + np.transpose(h_vvvvvo, (2, 1, 0, 3, 4, 5)) # antisymmetrize A(a/bc)
+    #h_vvvvvo -= np.transpose(h_vvvvvo, (0, 2, 1, 3, 4, 5)) # antisymmetrize A(bc)
     #LH += (1.0 / 12.0) * np.einsum("efgjo,efgabo->abj", l3, h_vvvvvo, optimize=True)
     #
     LH -= np.transpose(LH, (1, 0, 2))

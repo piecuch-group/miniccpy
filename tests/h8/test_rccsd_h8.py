@@ -20,7 +20,7 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, rhf=True)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='rccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method="rccsd")
-L = run_leftcc_calc(T, H1, H2, o, v, method="left_rccsd")
+L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_rccsd")
 
 rdm1 = build_rdm1(T, L)
 rdm2 = build_rdm2(T, L)

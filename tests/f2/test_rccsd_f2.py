@@ -13,7 +13,7 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, cartesian=True, unit="Bohr",
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='rccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method='rccsd')
-L = run_leftcc_calc(T, H1, H2, o, v, method='left_rccsd')
+L = run_leftcc_calc(T, fock, H1, H2, o, v, method='left_rccsd')
 
 print("Norm of L1 = ", np.linalg.norm(L[0].flatten()))
 print("Norm of L2 = ", np.linalg.norm(L[1].flatten()))

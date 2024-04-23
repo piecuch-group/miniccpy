@@ -1,6 +1,5 @@
 numpy
 scipy
-pydantic
+numba
 setuptools
-art
 cclib
