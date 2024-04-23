@@ -1,10 +1,16 @@
 import numpy as np
+from numba import njit
 from miniccpy.hbar_diagonal import get_3body_hbar_triples_diagonal
 
 def kernel(T, L, fock, H1, H2, o, v):
 
+    # unpack T and L vectors
     t1, t2 = T
     l1, l2 = L
+
+    # orbial dimensions
+    nu, no = t1.shape
+
     # get 3-body Hbar triples diagonal
     d3v, d3o = get_3body_hbar_triples_diagonal(H2[o, o, v, v], t2)
     
@@ -29,12 +35,21 @@ def kernel(T, L, fock, H1, H2, o, v):
     L3 -= np.transpose(L3, (0, 2, 1, 3, 4, 5)) # (bc)
     L3 -= np.transpose(L3, (2, 1, 0, 3, 4, 5)) + np.transpose(L3, (1, 0, 2, 3, 4, 5)) # (a/bc)
 
+    # Perform correction in loop
+    delta_A, delta_B, delta_C, delta_D = correction_in_loop(M3, L3, no, nu, fock, H1, H2, d3o, d3v, o, v)
+
+    # Store triples corrections in dictionary
+    delta_T = {"A": delta_A, "B": delta_B, "C": delta_C, "D": delta_D}
+    return delta_T
+
+@njit
+def correction_in_loop(M3, L3, no, nu, fock, H1, H2, d3o, d3v, o, v):
+
     # Compute triples correction in loop
     delta_A = 0.0
     delta_B = 0.0
     delta_C = 0.0
     delta_D = 0.0
-    nu, no = t1.shape
     for a in range(nu):
         for b in range(a + 1, nu):
             for c in range(b + 1, nu):
@@ -74,9 +89,4 @@ def kernel(T, L, fock, H1, H2, o, v):
                             )
                             delta_D += LM/dD
 
-    # Store triples corrections in dictionary
-    delta_T = {"A": delta_A, "B": delta_B, "C": delta_C, "D": delta_D}
-    return delta_T
-
-    #L3 /= e_abcijk
-    #return (1.0 / 36.0) * np.einsum("abcijk,abcijk->", L3, M3, optimize=True)
+    return delta_A, delta_B, delta_C, delta_D
