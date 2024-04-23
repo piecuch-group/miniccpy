@@ -17,11 +17,12 @@ nroot = 4
 R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
 R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4", state_index=[0, 3])
 
-print("Obtained the eigenvalues:", omega)
-
-print("\nGAMESS reference values:")
-print("SINGLET ENERGY = ", -0.4490361545) 
-print("TRIPLET ENERGY = ", -0.4700687744)
+#
+# Check the results
+#
+expected_vee = [-0.4700687744, -0.4490361545]
+for i, vee in enumerate(expected_vee):
+    assert np.allclose(omega[i], vee, atol=1.0e-06)
 
 
 

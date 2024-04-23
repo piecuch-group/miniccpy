@@ -19,12 +19,11 @@ R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="deaeom4",
 
 expected_vee = [-1.2063288624, -1.2280321410, -1.1434807780, -1.0428117510, -0.9119057911]
 
-for i, istate in enumerate(state_index):
-    print("istate", istate, "expected:", expected_vee[i], "got:", omega[istate])
-
-#for i, istate in enumerate(state_index):
-#    print("expected:", expected_vee[i], "got:", omega[istate])
-#    assert np.allclose(omega[istate], expected_vee[i], atol=1.0e-07)
+#
+# Check the results
+#
+for i, vee in enumerate(expected_vee):
+    assert np.allclose(omega[i], vee, atol=1.0e-07)
 
 
 
