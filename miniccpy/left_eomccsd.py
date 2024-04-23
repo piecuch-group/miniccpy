@@ -74,6 +74,17 @@ def LH(l1, l2, t1, t2, H1, H2, o, v):
 
     return np.hstack( [LH1.flatten(), LH2.flatten()] )
 
+def calc_LR(L, R, nocc, nunocc):
+    # unpack L
+    l1 = L[:nunocc*nocc].reshape(nunocc, nocc)
+    l2 = L[nocc*nunocc:].reshape(nunocc, nunocc, nocc, nocc)
+    # unpack R
+    r1, r2 = R
+    # compute LR
+    LR = np.einsum("ai,ai->", l1, r1, optimize=True)
+    LR += 0.25 * np.einsum("abij,abij->", l2, r2, optimize=True)
+    return LR
+
 def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
@@ -173,7 +184,10 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
         curr_size += 1
     else:
         print("Left-EOMCCSD iterations did not converge")
-
+    
+    # Normalize <L|R> = 1
+    LR = calc_LR(L, R, nocc, nunocc)
+    L /= LR
     # Save the final converged root in an excitation tuple
     L = (L[:n1].reshape(nunocc, nocc), L[n1:].reshape(nunocc, nunocc, nocc, nocc))
 

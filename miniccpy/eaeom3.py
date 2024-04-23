@@ -66,12 +66,6 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
         res_norm = np.linalg.norm(residual)
         delta_e = omega - omega_old
 
-        toc = time.time()
-        minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
-        if res_norm < convergence and abs(delta_e) < convergence:
-            break
-
         # update residual vector
         q = update(residual[:n1].reshape(nunocc),
                    residual[n1:n1+n2].reshape(nunocc, nunocc, nocc),
@@ -105,6 +99,12 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
             curr_size = restart_block.shape[1] - 1
 
         curr_size += 1
+
+        toc = time.time()
+        minutes, seconds = divmod(toc - tic, 60)
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
+        if res_norm < convergence and abs(delta_e) < convergence:
+            break
     else:
         print("EA-EOMCC(3p-2h) iterations did not converge")
 

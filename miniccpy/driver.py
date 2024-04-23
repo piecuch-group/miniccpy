@@ -347,9 +347,12 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence
         print("")
         print("    Largest Singly and Doubly Excited Amplitudes")
         print("    --------------------------------------------")
-        print_amplitudes(L[n][0], L[n][1], 0.025, rhf=flag_rhf)
+        if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
+            print_amplitudes(L[n][0], L[n][1], 0.025, rhf=flag_rhf)
         print("")
         print("    Left-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        # check that the right eigenvalue is equal to the left eigenvalue
+        assert np.allclose(omega0[n], omega[n], atol=1.0e-06)
         print("")
 
     #print("   Biorthonormality Check")
