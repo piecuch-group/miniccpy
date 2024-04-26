@@ -92,12 +92,62 @@ def onebody_denom_abc(fock, v):
     e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
     return e_abc
 
+def vvvv_denom_abc(h_vvvv):
+    nu, _, _, _ = h_vvvv.shape
+    eps = np.zeros((nu, nu))
+    n = np.newaxis
+    # extract this kind of diagonal from h_vvvv
+    for a in range(nu):
+        for b in range(nu):
+            eps[a, b] = h_vvvv[b, a, b, a]
+    # form the denominator
+    e_abc = -eps[:, :, n] - eps[:, n, :] - eps[n, :, :]
+    return e_abc
+
+def voov_denom_abc(i, j, k, h_voov):
+    n = np.newaxis
+    eps_i = np.diagonal(h_voov[:, i, i, :])
+    eps_j = np.diagonal(h_voov[:, j, j, :])
+    eps_k = np.diagonal(h_voov[:, k, k, :])
+    e_abc = (
+            -eps_i[:, n, n] - eps_i[n, :, n] - eps_i[n, n, :]
+            -eps_j[:, n, n] - eps_j[n, :, n] - eps_j[n, n, :]
+            -eps_k[:, n, n] - eps_k[n, :, n] - eps_k[n, n, :]
+    )
+    return e_abc
+
+def voo_denom_abc(i, j, k, d3o):
+    n = np.newaxis
+    eps_ij = d3o[:, i, j]
+    eps_ik = d3o[:, i, k]
+    eps_jk = d3o[:, j, k]
+    e_abc = (
+            +eps_ij[:, n, n] + eps_ik[:, n, n] + eps_jk[:, n, n]
+            +eps_ij[n, :, n] + eps_ik[n, :, n] + eps_jk[n, :, n]
+            +eps_ij[n, n, :] + eps_ik[n, n, :] + eps_jk[n, n, :]
+    )
+    return e_abc
+
+def vov_denom_abc(i, j, k, d3v):
+    nu, no, _ = d3v.shape
+    n = np.newaxis
+    eps_i = d3v[:, i, :]
+    eps_j = d3v[:, j, :]
+    eps_k = d3v[:, k, :]
+    e_abc = (
+            -eps_i[:, :, n] - eps_i[:, n, :] - eps_i[n, :, :]
+            -eps_j[:, :, n] - eps_j[:, n, :] - eps_j[n, :, :]
+            -eps_k[:, :, n] - eps_k[:, n, :] - eps_k[n, :, :]
+    )
+    return e_abc
+
 #@njit
 def correction_in_loop(t1, t2, l1, l2, fock, H1, I_vooo, H2, d3o, d3v, o, v, no, nu):
 
-    # precompute a,b,c part of one-body denominators
-    denom_A_abc = onebody_denom_abc(fock, v)
-    denom_B_abc = onebody_denom_abc(H1, v)
+    # precompute blocks of diagonal that do not depend on occupied indices
+    denom_A_v = onebody_denom_abc(fock, v)
+    denom_B_v = onebody_denom_abc(H1, v)
+    denom_C_vvvv = vvvv_denom_abc(H2[v, v, v, v])
 
     # Compute triples correction in loop
     delta_A = 0.0
@@ -109,8 +159,12 @@ def correction_in_loop(t1, t2, l1, l2, fock, H1, I_vooo, H2, d3o, d3v, o, v, no,
             for k in range(j + 1, no):
     
                 # compute i,j,k part of triples denominator
-                denom_A_ijk = fock[o, o][i, i] + fock[o, o][j, j] + fock[o, o][k, k] 
-                denom_B_ijk = H1[o, o][i, i] + H1[o, o][j, j] + H1[o, o][k, k]
+                denom_A_o = fock[o, o][i, i] + fock[o, o][j, j] + fock[o, o][k, k] 
+                denom_B_o = H1[o, o][i, i] + H1[o, o][j, j] + H1[o, o][k, k]
+                denom_C_voov = voov_denom_abc(i, j, k, H2[v, o, o, v])
+                denom_C_oooo = -H2[o, o, o, o][j, i, j, i] - H2[o, o, o, o][k, i, k, i] - H2[o, o, o, o][k, j, k, j]
+                denom_D_voo = voo_denom_abc(i, j, k, d3o)
+                denom_D_vov = vov_denom_abc(i, j, k, d3v)
 
                 # compute a,b,c part of moments and left vector
                 m3 = moments_ijk(i, j, k, I_vooo, H2[v, v, o, v], t2)
@@ -118,34 +172,9 @@ def correction_in_loop(t1, t2, l1, l2, fock, H1, I_vooo, H2, d3o, d3v, o, v, no,
                 LM = m3 * l3
 
                 # compute corrections in a vectorized manner
-                delta_A += (1.0 / 6.0) * np.sum(LM/(denom_A_ijk + denom_A_abc))
-                delta_B += (1.0 / 6.0) * np.sum(LM/(denom_B_ijk + denom_B_abc))
-
-                # 
-                # Can skip computation of C and D corrections if you want because A and B are very fast
-                #
-                # compute C and D in a devectorized manner (for now)
-                for a in range(nu):
-                    for b in range(a + 1, nu):
-                        for c in range(b + 1, nu):
-                            # C correction
-                            denom_C = denom_B_ijk + denom_B_abc[a, b, c] + (
-                                    -H2[v, o, o, v][a, i, i, a] - H2[v, o, o, v][b, i, i, b] - H2[v, o, o, v][c, i, i, c]
-                                    -H2[v, o, o, v][a, j, j, a] - H2[v, o, o, v][b, j, j, b] - H2[v, o, o, v][c, j, j, c]
-                                    -H2[v, o, o, v][a, k, k, a] - H2[v, o, o, v][b, k, k, b] - H2[v, o, o, v][c, k, k, c]
-                                    -H2[o, o, o, o][j, i, j, i] - H2[o, o, o, o][k, i, k, i] - H2[o, o, o, o][k, j, k, j]
-                                    -H2[v, v, v, v][b, a, b, a] - H2[v, v, v, v][c, a, c, a] - H2[v, v, v, v][c, b, c, b]
-                            )
-                            delta_C += LM[a, b, c]/denom_C
-                            # D correction
-                            denom_D = denom_C + (
-                                    +d3o[a, i, j] + d3o[a, i, k] + d3o[a, j, k]
-                                    +d3o[b, i, j] + d3o[b, i, k] + d3o[b, j, k]
-                                    +d3o[c, i, j] + d3o[c, i, k] + d3o[c, j, k]
-                                    -d3v[a, i, b] - d3v[a, i, c] - d3v[b, i, c]
-                                    -d3v[a, j, b] - d3v[a, j, c] - d3v[b, j, c]
-                                    -d3v[a, k, b] - d3v[a, k, c] - d3v[b, k, c]
-                            )
-                            delta_D += LM[a, b, c]/denom_D
+                delta_A += (1.0 / 6.0) * np.sum(LM/(denom_A_o + denom_A_v))
+                delta_B += (1.0 / 6.0) * np.sum(LM/(denom_B_o + denom_B_v))
+                delta_C += (1.0 / 6.0) * np.sum(LM/(denom_B_o + denom_B_v + denom_C_voov + denom_C_oooo + denom_C_vvvv))
+                delta_D += (1.0 / 6.0) * np.sum(LM/(denom_B_o + denom_B_v + denom_C_voov + denom_C_oooo + denom_C_vvvv + denom_D_voo + denom_D_vov))
 
     return delta_A, delta_B, delta_C, delta_D
