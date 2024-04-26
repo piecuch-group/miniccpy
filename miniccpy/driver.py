@@ -11,6 +11,9 @@ MODULES = [module for module in __all__]
 # Manually specify those modules that are RHF non-orthogonally spin-adapted codes
 RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "left_eomrccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
+# amplitude printing threshold
+PRINT_THRESH = 0.09
+
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
     return the necessary objects, including MO integrals and correlated
@@ -147,7 +150,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
     print("")
     print("    Largest Singly and Doubly Excited Amplitudes")
     print("    --------------------------------------------")
-    print_amplitudes(T[0], T[1], 0.025, rhf=flag_rhf)
+    print_amplitudes(T[0], T[1], PRINT_THRESH, rhf=flag_rhf)
     print("")
     print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
@@ -185,7 +188,7 @@ def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07
     print("")
     print("    Largest Singly and Doubly Excited Amplitudes")
     print("    --------------------------------------------")
-    print_amplitudes(L[0], L[1], 0.025, rhf=flag_rhf)
+    print_amplitudes(L[0], L[1], PRINT_THRESH, rhf=flag_rhf)
     print("")
     print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print("")
@@ -203,7 +206,7 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=0.025, mult=-1):
+def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRINT_THRESH, mult=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
     from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess
     from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector
@@ -307,7 +310,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    Largest Singly and Doubly Excited Amplitudes")
         print("    --------------------------------------------")
         if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
-            print_amplitudes(R[n][0], R[n][1], 0.025, rhf=flag_rhf)
+            print_amplitudes(R[n][0], R[n][1], PRINT_THRESH, rhf=flag_rhf)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         print("")
@@ -347,8 +350,8 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence
         print("")
         print("    Largest Singly and Doubly Excited Amplitudes")
         print("    --------------------------------------------")
-        if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
-            print_amplitudes(L[n][0], L[n][1], 0.025, rhf=flag_rhf)
+        if method.lower() in ["left_eomccsd", "left_eomccsdt", "left_eomrccsd", "left_eomrccsdt", "left_eomcc3", "left_eomcc3-lin"]:
+            print_amplitudes(L[n][0], L[n][1], PRINT_THRESH, rhf=flag_rhf)
         print("")
         print("    Left-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         # check that the right eigenvalue is equal to the left eigenvalue
