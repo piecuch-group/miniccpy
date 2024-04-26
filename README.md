@@ -21,11 +21,14 @@ as well as two-component relativistic approaches and nuclear structure calculati
 ### Ground-state CC methodologies
 - CCD
 - CCSD
+- CCSD(T)
+- CR-CC(2,3)
 - CC3
 - CCSDT
 - CCSDTQ
 ### Excited-state EOMCC methodologies 
 - EOMCCSD
+- CR-EOMCC(2,3)
 - EOM-CC3
 - EOMCCSDT
 - IP-EOMCCSD(2h-1p)
