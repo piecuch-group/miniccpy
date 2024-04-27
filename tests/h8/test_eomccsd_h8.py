@@ -16,7 +16,7 @@ geom = [['H', ( 2.4143135624,  1.000, 0.000)],
 
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
-T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
+T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
 
 H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 
