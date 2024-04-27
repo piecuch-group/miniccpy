@@ -782,19 +782,19 @@ def build_hbar_ccsdt(T, f, g, o, v):
     return H1, H2
 
 def build_hbar_cc3(T, f, g, o, v):
-    """Calculate the one- and two-body components of the CCSD-like 
-    similarity-transformed Hamiltonian [H_N exp(T1+T2)]_C,
+    """Calculate the one- and two-body components of the CCSDT 
+    similarity-transformed Hamiltonian [H_N exp(T1+T2+T3)]_C,
     defined by 
-        H1[:, :] = < p | [H_N exp(T1+T2)]_C | q > 
-        H2[:, :, :, :] = < pq | [H_N exp(T1+T2)]_C | rs >.
-    used for CC3 computation. All nonlinear T2**2 terms are removed.
+        H1[:, :] = < p | [H_N exp(T1+T2+T3)]_C | q > 
+        H2[:, :, :, :] = < pq | [H_N exp(T1+T2+T3)]_C | rs >.
     """
+    from miniccpy.helper_cc3 import compute_cc3_intermediates
 
     norbitals = f.shape[0]
     nunocc, nocc = f[v, o].shape
     n1 = nunocc * nocc
 
-    t1, t2, _ = T
+    t1, t2 = T
 
     H1 = np.zeros((norbitals, norbitals))
     H2 = np.zeros((norbitals, norbitals, norbitals, norbitals))
@@ -861,4 +861,49 @@ def build_hbar_cc3(T, f, g, o, v):
 
     H2[o, o, v, v] = g[o, o, v, v]
 
+    # Parts contracted with T3
+    eps = np.diagonal(f)
+    n = np.newaxis
+    e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
+    X_vooo, X_vvov = compute_cc3_intermediates(f, g, t1, t2, o, v)
+    # premultiply by factor of 1/2 to compensate later antisymmetrization on the parts already built
+    H2[v, v, o, v] *= 0.5
+    H2[v, o, o, o] *= 0.5
+    for i in range(nocc):
+        for j in range(i + 1, nocc):
+            for k in range(j + 1, nocc):
+                # fock denominator for occupied
+                denom_occ = f[o, o][i, i] + f[o, o][j, j] + f[o, o][k, k]
+                # -1/2 A(k/ij)A(abc) I(amij) * t(bcmk)
+                t3_abc = -0.5 * np.einsum("am,bcm->abc", X_vooo[:, :, i, j], t2[:, :, :, k], optimize=True)
+                t3_abc += 0.5 * np.einsum("am,bcm->abc", X_vooo[:, :, k, j], t2[:, :, :, i], optimize=True)
+                t3_abc += 0.5 * np.einsum("am,bcm->abc", X_vooo[:, :, i, k], t2[:, :, :, j], optimize=True)
+                # 1/2 A(i/jk)A(abc) I(abie) * t(ecjk)
+                t3_abc += 0.5 * np.einsum("abe,ec->abc", X_vvov[:, :, i, :], t2[:, :, j, k], optimize=True)
+                t3_abc -= 0.5 * np.einsum("abe,ec->abc", X_vvov[:, :, j, :], t2[:, :, i, k], optimize=True)
+                t3_abc -= 0.5 * np.einsum("abe,ec->abc", X_vvov[:, :, k, :], t2[:, :, j, i], optimize=True)
+                # Antisymmetrize A(abc)
+                t3_abc -= np.transpose(t3_abc, (1, 0, 2)) + np.transpose(t3_abc, (2, 1, 0)) # A(a/bc)
+                t3_abc -= np.transpose(t3_abc, (0, 2, 1)) # A(bc)
+                # Divide t_abc by the denominator
+                t3_abc /= (denom_occ + e_abc)
+                # Compute diagram: A(i/jk) -g(jkef)*t3(abfijk)
+                H2[v, v, o, v][:, :, i, :] -= 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, k, :, :], t3_abc, optimize=True)
+                H2[v, v, o, v][:, :, j, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][i, k, :, :], t3_abc, optimize=True)
+                H2[v, v, o, v][:, :, k, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, i, :, :], t3_abc, optimize=True)
+                # Compute diagram: A(k/ij) g(:kef)*t3(aefijk)
+                H2[v, o, o, o][:, :, i, j] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, k, :, :], t3_abc, optimize=True)
+                H2[v, o, o, o][:, :, j, k] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, i, :, :], t3_abc, optimize=True)
+                H2[v, o, o, o][:, :, i, k] -= 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, j, :, :], t3_abc, optimize=True)
+
+    # Antisymmetrize vvov and vooo parts
+    H2[v, v, o, v] -= np.transpose(H2[v, v, o, v], (1, 0, 2, 3))
+    H2[v, o, o, o] -= np.transpose(H2[v, o, o, o], (0, 1, 3, 2))
+    # Manually clear all diagonal elements
+    for a in range(nunocc):
+        H2[v, v, o, v][a, a, :, :] *= 0.0
+    for i in range(nocc):
+        H2[v, o, o, o][:, :, i, i] *= 0.0
+
     return H1, H2
+
