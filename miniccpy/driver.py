@@ -12,7 +12,7 @@ MODULES = [module for module in __all__]
 RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "left_eomrccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
 # amplitude printing threshold
-PRINT_THRESH = 0.09
+PRINT_THRESH = 0.05
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
@@ -117,7 +117,7 @@ def run_mpn_calc(fock, g, o, v, method):
 
     return e_corr
 
-def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False):
+def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False, t3_excitations=None):
     """Run the ground-state CC calculation specified by `method`."""
     from miniccpy.printing import print_amplitudes
 
@@ -140,7 +140,10 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
         diis_size = 1000 
 
     tic = time.time()
-    T, e_corr = calculation(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi)
+    if t3_excitations is not None:
+        T, e_corr = calculation(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi, t3_excitations=t3_excitations)
+    else:
+        T, e_corr = calculation(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
