@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from miniccpy.energy import rcc_energy
-from miniccpy.hbar import get_rccs_intermediates
+from miniccpy.helper_cc import get_rccs_intermediates
 from miniccpy.diis import DIIS
 
 def singles_residual(t1, t2, t3, f, g, o, v):

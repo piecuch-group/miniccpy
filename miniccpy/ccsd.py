@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from miniccpy.energy import cc_energy, hf_energy, hf_energy_from_fock
-from miniccpy.hbar import get_ccs_intermediates
+from miniccpy.helper_cc import get_ccs_intermediates
 from miniccpy.diis import DIIS
 
 from miniccpy.updates import update_t1, update_t2

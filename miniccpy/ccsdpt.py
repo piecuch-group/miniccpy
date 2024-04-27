@@ -1,4 +1,5 @@
 import numpy as np
+from miniccpy.hbar_diagonal import vv_denom_abc
 
 def kernel(T, L, fock, H1, g, o, v):
     # Note: H1 should just be None. It's not even used. It's just there
@@ -50,18 +51,11 @@ def leftamps_dc_ijk(i, j, k, f_ov, g_oovv, l1, l2):
     L3 -= np.transpose(L3, (0, 2, 1)) # (bc)
     return L3
 
-def onebody_denom_abc(fock, v):
-    eps = np.diagonal(fock)
-    n = np.newaxis
-    e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
-    return e_abc
-
-#@njit
 def correction_in_loop(t1, t2, fock, g, o, v):
     # orbital dimensions
     no, nu = fock[o, v].shape
     # precompute blocks of diagonal that do not depend on occupied indices
-    denom_A_v = onebody_denom_abc(fock, v)
+    denom_A_v = vv_denom_abc(fock, v)
     # Compute triples correction in loop
     delta_A = 0.0
     for i in range(no):

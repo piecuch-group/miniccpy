@@ -1,6 +1,5 @@
 import numpy as np
-#from numba import njit
-from miniccpy.hbar_diagonal import get_3body_hbar_triples_diagonal
+from miniccpy.hbar_diagonal import get_3body_hbar_triples_diagonal, vv_denom_abc, vvvv_denom_abc, voov_denom_abc, voo_denom_abc, vov_denom_abc
 
 def kernel(T, L, fock, H1, H2, o, v):
 
@@ -86,67 +85,11 @@ def leftamps_ijk(i, j, k, h1_ov, h2_oovv, h2_vovv, h2_ooov, l1, l2):
     L3 -= np.transpose(L3, (0, 2, 1)) # (bc)
     return L3
 
-def onebody_denom_abc(fock, v):
-    eps = np.diagonal(fock)
-    n = np.newaxis
-    e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
-    return e_abc
-
-def vvvv_denom_abc(h_vvvv):
-    nu, _, _, _ = h_vvvv.shape
-    eps = np.zeros((nu, nu))
-    n = np.newaxis
-    # extract this kind of diagonal from h_vvvv
-    for a in range(nu):
-        for b in range(nu):
-            eps[a, b] = h_vvvv[b, a, b, a]
-    # form the denominator
-    e_abc = -eps[:, :, n] - eps[:, n, :] - eps[n, :, :]
-    return e_abc
-
-def voov_denom_abc(i, j, k, h_voov):
-    n = np.newaxis
-    eps_i = np.diagonal(h_voov[:, i, i, :])
-    eps_j = np.diagonal(h_voov[:, j, j, :])
-    eps_k = np.diagonal(h_voov[:, k, k, :])
-    e_abc = (
-            -eps_i[:, n, n] - eps_i[n, :, n] - eps_i[n, n, :]
-            -eps_j[:, n, n] - eps_j[n, :, n] - eps_j[n, n, :]
-            -eps_k[:, n, n] - eps_k[n, :, n] - eps_k[n, n, :]
-    )
-    return e_abc
-
-def voo_denom_abc(i, j, k, d3o):
-    n = np.newaxis
-    eps_ij = d3o[:, i, j]
-    eps_ik = d3o[:, i, k]
-    eps_jk = d3o[:, j, k]
-    e_abc = (
-            +eps_ij[:, n, n] + eps_ik[:, n, n] + eps_jk[:, n, n]
-            +eps_ij[n, :, n] + eps_ik[n, :, n] + eps_jk[n, :, n]
-            +eps_ij[n, n, :] + eps_ik[n, n, :] + eps_jk[n, n, :]
-    )
-    return e_abc
-
-def vov_denom_abc(i, j, k, d3v):
-    nu, no, _ = d3v.shape
-    n = np.newaxis
-    eps_i = d3v[:, i, :]
-    eps_j = d3v[:, j, :]
-    eps_k = d3v[:, k, :]
-    e_abc = (
-            -eps_i[:, :, n] - eps_i[:, n, :] - eps_i[n, :, :]
-            -eps_j[:, :, n] - eps_j[:, n, :] - eps_j[n, :, :]
-            -eps_k[:, :, n] - eps_k[:, n, :] - eps_k[n, :, :]
-    )
-    return e_abc
-
-#@njit
 def correction_in_loop(t1, t2, l1, l2, fock, H1, I_vooo, H2, d3o, d3v, o, v, no, nu):
 
     # precompute blocks of diagonal that do not depend on occupied indices
-    denom_A_v = onebody_denom_abc(fock, v)
-    denom_B_v = onebody_denom_abc(H1, v)
+    denom_A_v = vv_denom_abc(fock, v)
+    denom_B_v = vv_denom_abc(H1, v)
     denom_C_vvvv = vvvv_denom_abc(H2[v, v, v, v])
 
     # Compute triples correction in loop
