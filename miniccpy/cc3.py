@@ -102,14 +102,13 @@ def doubles_residual(t1, t2, f, g, o, v, X_vooo, X_vvov, e_abc):
                 doubles_res[:, :, j, k] += 0.5 * np.einsum("e,abe->ab", H1[o, v][i, :], t3_abc, optimize=True) # (ik)
                 doubles_res[:, :, i, k] -= 0.5 * np.einsum("e,abe->ab", H1[o, v][j, :], t3_abc, optimize=True) # (jk)
                 # Compute diagram: -A(j/ik) h(ik:f) * t3(abfijk)
-                doubles_res[:, :, :, j] -= 0.5 * np.einsum("mf,abf->abm", X_ooov[i, k, :, :], t3_abc, optimize=True) 
-                doubles_res[:, :, :, i] += 0.5 * np.einsum("mf,abf->abm", X_ooov[j, k, :, :], t3_abc, optimize=True) 
-                doubles_res[:, :, :, k] += 0.5 * np.einsum("mf,abf->abm", X_ooov[i, j, :, :], t3_abc, optimize=True) 
-                # Compute diagram: 1/2 A(k/ij) h(akef) * t3(ebfijk) 
-                doubles_res[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, k, :, :], t3_abc, optimize=True) 
-                doubles_res[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, i, :, :], t3_abc, optimize=True) 
-                doubles_res[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, j, :, :], t3_abc, optimize=True) 
-    
+                doubles_res[:, :, :, j] -= 0.5 * np.einsum("mf,abf->abm", X_ooov[i, k, :, :], t3_abc, optimize=True)
+                doubles_res[:, :, :, i] += 0.5 * np.einsum("mf,abf->abm", X_ooov[j, k, :, :], t3_abc, optimize=True)
+                doubles_res[:, :, :, k] += 0.5 * np.einsum("mf,abf->abm", X_ooov[i, j, :, :], t3_abc, optimize=True)
+                # Compute diagram: 1/2 A(k/ij) h(akef) * t3(ebfijk)
+                doubles_res[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, k, :, :], t3_abc, optimize=True)
+                doubles_res[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, i, :, :], t3_abc, optimize=True)
+                doubles_res[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", X_vovv[:, j, :, :], t3_abc, optimize=True)
     # Antisymmetrize
     doubles_res -= np.transpose(doubles_res, (1, 0, 2, 3))
     doubles_res -= np.transpose(doubles_res, (0, 1, 3, 2))
@@ -118,7 +117,6 @@ def doubles_residual(t1, t2, f, g, o, v, X_vooo, X_vvov, e_abc):
         doubles_res[a, a, :, :] *= 0.0
     for i in range(no):
         doubles_res[:, :, i, i] *= 0.0
-
     return doubles_res
 
 

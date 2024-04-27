@@ -25,7 +25,7 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
     H = build_cisd_hamiltonian(f, g, o, v, nacto, nactu)
     omega, C_act = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C_act = np.real(C_act[:, idx])
 
     nroot = min(nroot, C_act.shape[1])
@@ -79,7 +79,7 @@ def cis_guess(f, g, o, v, nroot, mult=-1):
     H = build_cis_hamiltonian(f, g, o, v)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
 
     # For closed shells, we can pick out singlets and triplets numerically
@@ -119,7 +119,7 @@ def rcis_guess(f, g, o, v, nroot, mult=1):
     H = build_rcis_hamiltonian(f, g, o, v)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
     R_guess, _ = np.linalg.qr(C[:, :nroot])
@@ -134,7 +134,7 @@ def deacis_guess(f, g, o, v, nroot, nactu):
     H = build_2p_hamiltonian(f, g, o, v, nactu)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
 
     no, nu = f[o, v].shape
@@ -156,7 +156,7 @@ def dipcis_guess(f, g, o, v, nroot):
     H = build_2h_hamiltonian(f, g, o, v)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
 
     no, nu = f[o, v].shape
@@ -178,7 +178,7 @@ def eacis_guess(f, g, o, v, nroot):
     H = build_1p_hamiltonian(f, g, o, v)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
 
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
@@ -193,7 +193,7 @@ def ipcis_guess(f, g, o, v, nroot):
     H = build_1h_hamiltonian(f, g, o, v)
     omega, C = np.linalg.eig(H)
     idx = np.argsort(omega)
-    omega = omega[idx]
+    omega = np.real(omega[idx])
     C = np.real(C[:, idx])
 
     # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
