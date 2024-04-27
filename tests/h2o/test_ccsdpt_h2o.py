@@ -24,6 +24,11 @@ elif re == 2:
 
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
-T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
+T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
 delta_T = run_correction(T, None, fock, None, g, o, v, method="ccsdpt")
 
+#
+# Check the results
+#
+assert np.allclose(Ecorr, -0.291219152750, atol=1.0e-07)
+assert np.allclose(delta_T["A"], -0.018245145626911947, atol=1.0e-07)

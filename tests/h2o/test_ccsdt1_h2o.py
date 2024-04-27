@@ -25,5 +25,8 @@ t3_excitations = get_active_triples_pspace(4, 4, no, nu)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='ccsdt_p', t3_excitations=t3_excitations)
 
+#
+# Check the results
+#
 assert np.allclose(E_corr, -0.30334782, atol=1.0e-07)
 

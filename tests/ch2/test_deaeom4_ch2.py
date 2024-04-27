@@ -10,7 +10,7 @@ geom = [["C", (0.0, 0.0, 0.0)],
 
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, cartesian=True, charge=2)
 
-T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
+T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
 H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 R, omega_guess = run_guess(H1, H2, o, v, 10, method="deacis", mult=-1, nactu=10)
 

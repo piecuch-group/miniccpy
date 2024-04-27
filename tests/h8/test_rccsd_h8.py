@@ -1,3 +1,4 @@
+import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, get_hbar, run_leftcc_calc
 from miniccpy.rccsd_density import build_rdm1, build_rdm2
 from miniccpy.energy import cc_energy_from_rdm
@@ -24,10 +25,14 @@ L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_rccsd")
 
 rdm1 = build_rdm1(T, L)
 rdm2 = build_rdm2(T, L)
-E_corr2 = cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
+E_corr_from_rdm = cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
 
-print("CC energy = ", E_corr)
-print("CC energy from RDMs = ", E_corr2)
+
+#
+# Check the results
+#
+assert np.allclose(E_corr, -0.155467646254, atol=1.0e-07)
+assert np.allclose(E_corr_from_rdm, -0.155467646254, atol=1.0e-07)
 
 
 

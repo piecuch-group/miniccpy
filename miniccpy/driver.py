@@ -217,6 +217,7 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
     no, nu = H1[o, v].shape
 
     # get the initial guess
+    tic = time.perf_counter()
     if method == "cisd":
         nroot = min(nroot, no * nu)
         R0, omega0 = cisd_guess(H1, H2, o, v, nroot, nacto, nactu, mult)
@@ -238,12 +239,15 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
     elif method == "dipcis":
         nroot = min(nroot, no**2)
         R0, omega0 = dipcis_guess(H1, H2, o, v, nroot)
+    toc = time.perf_counter()
+    minutes, seconds = divmod(toc - tic, 60)
 
     # Convert initial vector to real
     R0 = np.real(R0)
 
     print("    Initial Guess Vectors:")
     print("    -----------------------")
+    print("    Guess calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     for i, e in enumerate(omega0):
         print("    Root ", i + 1)
         print("    Energy = ", np.real(e))

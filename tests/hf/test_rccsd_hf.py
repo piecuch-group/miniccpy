@@ -38,6 +38,9 @@ print("Norm of L2 = ", np.linalg.norm(L[1].flatten()), "Expected = ", 0.39024663
 #print("H2[v, v, v, o] = ", np.linalg.norm(H2[v, v, v, o].flatten()))
 #print("H2[v, v, v, v] = ", np.linalg.norm(H2[v, v, v, v].flatten()))
 
+#
+# Check the results
+#
 assert np.allclose(-0.277969253916, E_corr, atol=1.0e-08)
 
 

@@ -10,6 +10,10 @@ geom = [['H', (0.0, 0.0, -0.8)],
 fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, unit="Angstrom", symmetry="C2V", rhf=True)
 
 T, E_corr = run_cc_calc(fock, g, o, v, method="rcc3")
+
+#
+# Check the results
+#
 assert np.isclose(E_corr, -0.178932834216145, atol=1e-9)
 
 

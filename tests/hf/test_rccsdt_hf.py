@@ -11,6 +11,9 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, maxit=200, unit="Angstrom", 
 
 T, E_corr = run_cc_calc(fock, g, o, v, method='rccsdt', maxit=80)
 
+#
+# Check the results
+#
 assert np.allclose(-0.221558736943, E_corr, atol=1.0e-08)
 
 

@@ -13,7 +13,10 @@ T, E_corr = run_cc_calc(fock, g, o, v, method='ccsd', maxit=80)
 H1, H2 = get_hbar(T, fock, g, o, v, method="ccsd")
 L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_ccsd")
 
-
+#
+# Check the results
+#
+assert np.allclose(E_corr, -0.277969251460, atol=1.0e-07)
 
 
 
