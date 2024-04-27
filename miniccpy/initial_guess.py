@@ -32,16 +32,9 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
     no, nu = f[o, v].shape
     ndim = no*nu + no**2*nu**2
     C = np.zeros((ndim, nroot))
-    # Scatter the active-space CISd vector into the full singles+doubles space
-    if not is_closed_shell or mult != -1:
-        for i in range(nroot):
-            C[:, i] = cisd_scatter(C_act[:, i], nacto, nactu, no, nu)
-        # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
-        R_guess, _ = np.linalg.qr(C[:, :nroot])
-        omega_guess = omega[:nroot]
 
     # For closed shells, we can pick out singlets and triplets numerically
-    else:
+    if is_closed_shell and mult != -1:
         omega_guess = np.zeros(nroot)
         C_spin = np.zeros((C.shape[0], nroot))
         n_spin = 0
@@ -52,10 +45,15 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
                 n_spin += 1
             if n_spin >= nroot:
                 break
-
         # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
         R_guess, _ = np.linalg.qr(C_spin[:, :min(n_spin, nroot)])
         omega_guess = omega_guess[:min(n_spin, nroot)]
+    else:
+        for i in range(nroot):
+            C[:, i] = cisd_scatter(C_act[:, i], nacto, nactu, no, nu)
+        # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
+        R_guess, _ = np.linalg.qr(C[:, :nroot])
+        omega_guess = omega[:nroot]
 
     return R_guess, omega_guess
 
