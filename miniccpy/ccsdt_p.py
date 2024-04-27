@@ -3,7 +3,7 @@ import numpy as np
 from miniccpy.energy import cc_energy
 from miniccpy.hbar import get_ccs_intermediates, get_ccsd_intermediates
 from miniccpy.diis import DIIS
-from miniccpy.lib import ccsdt_p_loops
+from miniccpy.lib import ccsdt_p
 
 def singles_residual(t1, t2, t3, t3_excitations, f, g, o, v, shift):
     """Compute the projection of the CCSDT Hamiltonian on singles
@@ -25,7 +25,7 @@ def singles_residual(t1, t2, t3, t3_excitations, f, g, o, v, shift):
     singles_res += 0.5 * np.einsum("anef,efin->ai", h_vovv, t2, optimize=True)
     singles_res += f[v, o]
 
-    t1, singles_res = ccsdt_p_loops.ccsdt_p_loops.update_t1(
+    t1, singles_res = ccsdt_p.ccsdt_p.update_t1(
         t1, 
         singles_res,
         t3_excitations,
@@ -60,7 +60,7 @@ def doubles_residual(t1, t2, t3, t3_excitations, f, g, o, v, shift):
     doubles_res += 0.125 * np.einsum("mnij,abmn->abij", I_oooo, t2, optimize=True)
     doubles_res += 0.25 * g[v, v, o, o]
 
-    t2, doubles_res = ccsdt_p_loops.ccsdt_p_loops.update_t2(
+    t2, doubles_res = ccsdt_p.ccsdt_p.update_t2(
         t2,
         doubles_res,
         t3_excitations,
@@ -82,8 +82,8 @@ def triples_residual(t1, t2, t3, t3_excitations, f, g, o, v, shift):
     I2_vooo = H2[v, o, o, o] - np.einsum("me,aeij->amij", H1[o, v], t2, optimize=True)
     I2_vooo = I2_vooo.transpose(1, 0, 2, 3)
 
-    triples_res, t3, t3_excitations = ccsdt_p_loops.ccsdt_p_loops.update_t3_p(
-        t3, t3_excitations, 
+    triples_res, t3, t3_excitations = ccsdt_p.ccsdt_p.update_t3_p(
+        t3, t3_excitations,
         t2,
         H1[o, o], H1[v, v].T,
         g[o, o, v, v], H2[v, v, o, v].transpose(3, 0, 1, 2), I2_vooo,

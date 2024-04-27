@@ -1,4 +1,4 @@
-module ccsdt_p_loops
+module ccsdt_p
     
       use omp_lib
 
@@ -2202,4 +2202,4 @@ module ccsdt_p_loops
 
       end subroutine sum4
 
-end module ccsdt_p_loops
+end module ccsdt_p
