@@ -1,5 +1,6 @@
 # Build the ccq_py python module
-MODULES := ccsdt_p
+MODULES := ccsdt_p\
+	   dipeom4_p
 
 EXT_SUFFIX := $(shell python -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 SOURCES := $(addsuffix .f90, $(MODULES))
