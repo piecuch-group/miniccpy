@@ -39,12 +39,14 @@ def cisd_guess(f, g, o, v, nroot, nacto, nactu, mult=-1):
         C_spin = np.zeros((C.shape[0], nroot))
         n_spin = 0
         for n in range(C.shape[1]):
-            if spin_function(C_act[:no*nu, n], mult, no, nu) <= 1.0e-06:
+            if spin_function1(C_act[:no*nu, n], mult, no, nu) <= 1.0e-06:
                 C_spin[:, n_spin] = cisd_scatter(C_act[:, n], nacto, nactu, no, nu)
                 omega_guess[n_spin] = omega[n]
                 n_spin += 1
             if n_spin >= nroot:
                 break
+        else:
+            print(f"    Could not find {nroot} roots with mult = {mult}. Returning {n_spin} found roots.\n")
         # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
         R_guess, _ = np.linalg.qr(C_spin[:, :min(n_spin, nroot)])
         omega_guess = omega_guess[:min(n_spin, nroot)]
@@ -86,12 +88,14 @@ def cis_guess(f, g, o, v, nroot, mult=-1):
         C_spin = np.zeros((C.shape[0], nroot))
         n_spin = 0
         for n in range(C.shape[1]):
-            if spin_function(C[:, n], mult, no, nu) <= 1.0e-06:
+            if spin_function1(C[:, n], mult, no, nu) <= 1.0e-06:
                 C_spin[:, n_spin] = C[:, n]
                 omega_guess[n_spin] = omega[n]
                 n_spin += 1
             if n_spin >= nroot:
                 break
+        else:
+            print(f"    Could not find {nroot} roots with mult = {mult}. Returning {n_spin} found roots.\n")
         # orthonormalize the initial trial space; this is important when using doubles in EOMCCSd guess
         R_guess, _ = np.linalg.qr(C_spin[:, :min(n_spin, nroot)])
         omega_guess = omega_guess[:min(n_spin, nroot)]
@@ -601,7 +605,7 @@ def build_1h_hamiltonian(f, g, o, v):
 
     return H
 
-def spin_function(C1, mult, no, nu):
+def spin_function1(C1, mult, no, nu):
     # Reshape the excitation vector into C1
     c1_arr = np.reshape(np.real(C1), (nu, no))
     # Create the a->a and b->b single excitation cases
@@ -612,13 +616,34 @@ def spin_function(C1, mult, no, nu):
             if a % 2 == 0 and i % 2 == 0:
                 c1_a[a // 2, i // 2] = c1_arr[a, i]
             elif a % 2 == 1 and i % 2 == 1:
-                c1_b[ (a - 1) // 2, (i - 1) // 2] = c1_arr[a, i]
+                c1_b[(a - 1) // 2, (i - 1) // 2] = c1_arr[a, i]
     # For RHF, singlets have c1_a = c1_b and triplets have c1_a = -c1_b
     if mult == 1:
         error = np.linalg.norm(c1_a - c1_b)
     elif mult == 3:
         error = np.linalg.norm(c1_a + c1_b)
     return error
+
+# def spin_function2(C2, mult, no, nu):
+#     # Reshape the excitation vector into C2
+#     c2_arr = np.reshape(np.real(C2), (nu, nu, no, no))
+#     # Create the a->a and b->b single excitation cases
+#     c1_aa = np.zeros((nu // 2, nu // 2, no // 2, no // 2))
+#     c1_ab = np.zeros((nu // 2, nu // 2, no // 2, no // 2))
+#     c1_bb = np.zeros((nu // 2, nu // 2, no // 2, no // 2))
+#     for a in range(nu):
+#         for b in range()
+#         for i in range(no):
+#             if a % 2 == 0 and i % 2 == 0:
+#                 c1_a[a // 2, i // 2] = c1_arr[a, i]
+#             elif a % 2 == 1 and i % 2 == 1:
+#                 c1_b[(a - 1) // 2, (i - 1) // 2] = c1_arr[a, i]
+#     # For RHF, singlets have c1_a = c1_b and triplets have c1_a = -c1_b
+#     if mult == 1:
+#         error = np.linalg.norm(c1_a - c1_b)
+#     elif mult == 3:
+#         error = np.linalg.norm(c1_a + c1_b)
+#     return error
 
 def get_index_arrays(no, nu, nacto, nactu):
 

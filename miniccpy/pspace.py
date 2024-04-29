@@ -23,6 +23,8 @@ def get_active_triples_pspace(nacto, nactu, no, nu, num_active=1):
 
     print(f"   Constructing triples list for CCSDt({'I' * num_active})-type P space")
     print("   ---------------------------------------------------")
+    print("   Total number of occupied orbitals = ", no)
+    print("   Total number of unoccupied orbitals = ", nu)
     print("   Number of active occupied orbitals = ", nacto)
     print("   Number of active unoccupied orbitals = ", nactu)
 
@@ -37,7 +39,7 @@ def get_active_triples_pspace(nacto, nactu, no, nu, num_active=1):
                         for c in range(b + 1, nu):
                             if count_active_unocc([a, b, c]) >= num_active:
                                 t3_excitations.append([a + 1, b + 1, c + 1, i + 1, j + 1, k + 1])
-    # Convert the spin-integrated lists into Numpy arrays
+    # Convert the lists into Numpy arrays
     t3_excitations = np.asarray(t3_excitations, order="F")
     if len(t3_excitations.shape) < 2:
         t3_excitations = np.ones((1, 6))
@@ -55,6 +57,7 @@ def get_active_4h2p_pspace(nacto, no, nu, num_active=2):
 
     print(f"   Constructing triples list for DIP-EOMCCSD(4h-2p)({'I' * num_active})-type P space")
     print("   ---------------------------------------------------")
+    print("   Total number of occupied orbitals = ", no)
     print("   Number of active occupied orbitals = ", nacto)
 
     tic = time.perf_counter()
@@ -67,12 +70,12 @@ def get_active_4h2p_pspace(nacto, no, nu, num_active=2):
                     for c in range(nu):
                         for d in range(c + 1, nu):
                             r3_excitations.append([c + 1, d + 1, i + 1, j + 1, k + 1, l + 1])
-    # Convert the spin-integrated lists into Numpy arrays
+    # Convert the lists into Numpy arrays
     r3_excitations = np.asarray(r3_excitations, order="F")
     if len(r3_excitations.shape) < 2:
         r3_excitations = np.ones((1, 6))
     # Print the number of triples of a given spincase 
-    print(f"   Active space contains {r3_excitations.shape[0]} triples")
+    print(f"   Active space contains {r3_excitations.shape[0]} 4p2h excitations")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
