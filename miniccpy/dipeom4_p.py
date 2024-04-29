@@ -2,6 +2,11 @@ import time
 import numpy as np
 from miniccpy.lib import dipeom4_p
 
+# IMPORTANT NOTE:
+# r3_excitations must be passed back from the HR function. Otherwise, it will not
+# update and r3_amps/HR3 and r3_excitations will be out of alignment. This behavior
+# can be checked using the tmp variables.
+
 def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
@@ -34,11 +39,13 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     G = np.zeros((max_size, max_size))
 
     # Initial values
+    #tmp = r3_excitations.copy()
     B[0, :] = R
-    sigma[0, :] = HR(R[:n1].reshape(nocc, nocc),
+    sigma[0, :], r3_excitations = HR(R[:n1].reshape(nocc, nocc),
                      R[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                      R[n1+n2:], r3_excitations,
                      t1, t2, H1, H2, o, v, do_r3)
+    #print(np.linalg.norm(r3_excitations - tmp))
 
     print("    ==> DIP-EOMCC(4h-2p)(P) iterations <==")
     print("")
@@ -90,17 +97,18 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
         # If below maximum subspace size, expand the subspace
         if curr_size < max_size:
             B[curr_size, :] = q
-            sigma[curr_size, :] = HR(q[:n1].reshape(nocc, nocc),
+            sigma[curr_size, :], r3_excitations = HR(q[:n1].reshape(nocc, nocc),
                                      q[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                                      q[n1+n2:], r3_excitations,
                                      t1, t2, H1, H2, o, v, do_r3)
+            #print(np.linalg.norm(r3_excitations - tmp))
         else:
             # Basic restart - use the last approximation to the eigenvector
             print("       **Deflating subspace**")
             restart_block, _ = np.linalg.qr(restart_block)
             for j in range(restart_block.shape[1]):
                 B[j, :] = restart_block[:, j]
-                sigma[j, :] = HR(restart_block[:n1, j].reshape(nocc, nocc),
+                sigma[j, :], r3_excitations = HR(restart_block[:n1, j].reshape(nocc, nocc),
                                  restart_block[n1:n1+n2, j].reshape(nocc, nocc, nunocc, nocc),
                                  restart_block[n1+n2:, j], r3_excitations,
                                  t1, t2, H1, H2, o, v, do_r3)
@@ -129,16 +137,14 @@ def HR(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, do_r3):
     """Compute the matrix-vector product H * R, where
     H is the CCSD similarity-transformed Hamiltonian and R is
     the DIP-EOMCC linear excitation operator."""
-
     # update R1
     HR1 = build_HR1(r1, r2, r3, r3_excitations, H1, H2, o, v)
     # update R2
     HR2 = build_HR2(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
     # update R3
     if do_r3:
-        HR3, r3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
-
-    return np.hstack( [HR1.flatten(), HR2.flatten(), HR3] )
+        HR3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
+    return np.hstack([HR1.flatten(), HR2.flatten(), HR3]), r3_excitations
 
 def build_HR1(r1, r2, r3, r3_excitations, H1, H2, o, v):
     """Compute the projection of HR on 2h excitations
@@ -201,5 +207,5 @@ def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
             H2[v, v, o, v], H2[v, o, o, o], I_oooo, I_oovv,
             H2[o, o, o, o], H2[v, o, o, v], H2[v, v, v, v],
     )
-    return X3, r3, r3_excitations
+    return X3, r3_excitations
 
