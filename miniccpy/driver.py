@@ -274,7 +274,7 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
 def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, r3_excitations=None):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
-    from miniccpy.printing import print_amplitudes
+    from miniccpy.printing import print_amplitudes, print_dip_amplitudes
     # check if requested EOMCC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
@@ -321,6 +321,8 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    --------------------------------------------")
         if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
             print_amplitudes(R[n][0], R[n][1], PRINT_THRESH, rhf=flag_rhf)
+        if method.lower() in ["dipeom3", "dipeom4", "dipeom4_p"]:
+            print_dip_amplitudes(R[n][0], R[n][1], PRINT_THRESH)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         print("")

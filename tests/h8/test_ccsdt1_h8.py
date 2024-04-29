@@ -20,7 +20,8 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
 no, nu = fock[o, v].shape
 
-t3_excitations = get_active_triples_pspace(6, 6, no, nu)
+# Set up the list of triple excitations in the P space corresponding to CCSDt
+t3_excitations = get_active_triples_pspace(no, nu, nacto=6, nactu=6)
 T, E_corr = run_cc_calc(fock, g, o, v, method='ccsdt_p', t3_excitations=t3_excitations)
 
 assert np.allclose(E_corr, -0.17346159, atol=1.0e-07)

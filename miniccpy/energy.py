@@ -126,6 +126,13 @@ def calc_rel_ip(r1, r2):
     rel = (rel_1 + 2.0 * rel_2)/(rel_1 + rel_2)
     return rel
 
+def calc_rel_dip(r1, r2):
+    """Calculate the relative excitation level (REL) for DIP-EOMCC calculations"""
+    rel_1 = 0.5 * np.einsum("ij,ij->", r1, r1, optimize=True)
+    rel_2 = (1.0 / 6.0) * np.einsum("ijck,ijck->", r2, r2, optimize=True)
+    rel = (rel_1 + 2.0 * rel_2)/(rel_1 + rel_2)
+    return rel
+
 def hf_energy(z, g, o):
     """Calculate the Hartree-Fock energy using the molecular orbital
     integrals in un-normal order (i.e., using Z and V), defined as

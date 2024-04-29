@@ -21,8 +21,8 @@ fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen)
 
 no, nu = fock[o, v].shape
 
-t3_excitations = get_active_triples_pspace(4, 4, no, nu) 
-
+# Set up the list of triple excitations corresponding to the active-space CCSDt calculation
+t3_excitations = get_active_triples_pspace(no, nu, nacto=4, nactu=4)
 T, E_corr = run_cc_calc(fock, g, o, v, method='ccsdt_p', t3_excitations=t3_excitations)
 
 #

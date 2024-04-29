@@ -13,7 +13,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     non-Hermitian Davidson algorithm for a specific root defined by an initial
     guess vector.
     """
-    #from miniccpy.energy import calc_rel_dip
+    from miniccpy.energy import calc_rel_dip
 
     # determine whether r3 updates should be done
     do_r3 = True
@@ -123,8 +123,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     # r0 for a root in DIP is 0 by definition
     r0 = 0.0
     # Compute relative excitation level diagnostic
-    #rel = calc_rel_dip(R[0], R[1])
-    rel = 0.0
+    rel = calc_rel_dip(R[0], R[1])
     return R, omega, r0, rel
 
 def update(r1, r2, r3, r3_excitations, omega, h1_oo, h1_vv):

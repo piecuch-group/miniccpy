@@ -13,7 +13,7 @@ def active_particle(x, nact):
     else:
         return 0
 
-def get_active_triples_pspace(nacto, nactu, no, nu, num_active=1):
+def get_active_triples_pspace(no, nu, nacto=0, nactu=0, num_active=1):
 
     def count_active_occ(occ):
         return sum([active_hole(i, no, nacto) for i in occ])
@@ -50,7 +50,7 @@ def get_active_triples_pspace(nacto, nactu, no, nu, num_active=1):
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return t3_excitations
 
-def get_active_4h2p_pspace(nacto, no, nu, num_active=2):
+def get_active_4h2p_pspace(no, nu, nacto=0, num_active=2):
 
     def count_active_occ(occ):
         return sum([active_hole(i, no, nacto) for i in occ])

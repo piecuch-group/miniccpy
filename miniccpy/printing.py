@@ -289,3 +289,22 @@ def print_amplitudes(t1, t2, print_threshold, rhf=False):
                         n += 1
     return
 
+def print_dip_amplitudes(r1, r2, print_threshold):
+
+    no, _, nu, _ = r2.shape
+    n = 1
+    print("          i  j ->")
+    for i in range(no):
+        for j in range(i + 1, no):
+            if abs(r1[i, j]) <= print_threshold: continue
+            print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} {spatial_index(j + 1)}{spin_label(j + 1)} ->     {r1[i, j]}")
+            n += 1
+    print("          i j k -> c")
+    for i in range(no):
+        for j in range(i + 1, no):
+            for k in range(j + 1, no ):
+                for c in range(nu):
+                    if abs(r2[i, j, c, k]) <= print_threshold: continue
+                    print(f"     [{n}]  {spatial_index(i + 1)}{spin_label(i + 1)} {spatial_index(j + 1)}{spin_label(j + 1)} {spatial_index(k + 1)}{spin_label(k + 1)} -> {spatial_index(c + no + 1)}{spin_label(c + no + 1)}    {r2[i, j, c, k]}")
+                    n += 1
+    return
