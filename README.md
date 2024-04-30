@@ -1,6 +1,6 @@
 # Miniccpy:
 
-Miniccpy is a small coupled-cluster (CC) package written fully in Python that implements
+Miniccpy is a small coupled-cluster (CC) package written mostly in Python (along with some parts in Fortran) that implements
 several ground-state single-reference CC and equation-of-motion (EOM) CC methodologies in addition
 to some of the particle nonconserving EOMCC approaches of the singly and doubly electron attaching (EA)
 and ionizing (IP) varieties. Miniccpy serves as a freely available demonstration for how to program high-level CC/EOMCC 
