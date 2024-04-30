@@ -52,6 +52,16 @@ def voov_denom_abc(i, j, k, h_voov):
     )
     return e_abc
 
+def voov_denom_abc_3p2h(j, k, h_voov):
+    n = np.newaxis
+    eps_j = np.diagonal(h_voov[:, j, j, :])
+    eps_k = np.diagonal(h_voov[:, k, k, :])
+    e_abc = (
+            -eps_j[:, n, n] - eps_j[n, :, n] - eps_j[n, n, :]
+            -eps_k[:, n, n] - eps_k[n, :, n] - eps_k[n, n, :]
+    )
+    return e_abc
+
 def voo_denom_abc(i, j, k, d3o):
     n = np.newaxis
     eps_ij = d3o[:, i, j]
@@ -64,6 +74,16 @@ def voo_denom_abc(i, j, k, d3o):
     )
     return e_abc
 
+def voo_denom_abc_3p2h(j, k, d3o):
+    n = np.newaxis
+    eps_jk = d3o[:, j, k]
+    e_abc = (
+            eps_jk[:, n, n]
+            +eps_jk[n, :, n]
+            +eps_jk[n, n, :]
+    )
+    return e_abc
+
 def vov_denom_abc(i, j, k, d3v):
     nu, no, _ = d3v.shape
     n = np.newaxis
@@ -72,6 +92,17 @@ def vov_denom_abc(i, j, k, d3v):
     eps_k = d3v[:, k, :]
     e_abc = (
             -eps_i[:, :, n] - eps_i[:, n, :] - eps_i[n, :, :]
+            -eps_j[:, :, n] - eps_j[:, n, :] - eps_j[n, :, :]
+            -eps_k[:, :, n] - eps_k[:, n, :] - eps_k[n, :, :]
+    )
+    return e_abc
+
+def vov_denom_abc_3p2h(j, k, d3v):
+    nu, no, _ = d3v.shape
+    n = np.newaxis
+    eps_j = d3v[:, j, :]
+    eps_k = d3v[:, k, :]
+    e_abc = (
             -eps_j[:, :, n] - eps_j[:, n, :] - eps_j[n, :, :]
             -eps_k[:, :, n] - eps_k[:, n, :] - eps_k[n, :, :]
     )

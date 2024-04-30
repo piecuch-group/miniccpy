@@ -298,7 +298,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         tic = time.time()
         # Note: EOMCC3 methods have a difference function call due to needing fock and g matrices
         if method.lower() == "eomcc3": # Folded EOMCC3 model using excited-state DIIS algorithm
-            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis, denom_type=denom_type)
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "dreomcc3": # Folded dressed EOMCC3 model using excited-state DIIS algorithm
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization

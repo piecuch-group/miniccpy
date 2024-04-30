@@ -2,7 +2,7 @@ import time
 import numpy as np
 from miniccpy.helper_cc3 import compute_eomcc3_intermediates
 
-def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True, denom_type="fock"):
+def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
     """
     Solve the nonlinear equations defined by the CC3 Jacobian eigenvalue problem
     H(omega)*R = omega*R, where R is defined as (R1, R2). This corresponds to the
