@@ -364,7 +364,7 @@ def build_hbar_ccsd(T, f, g, o, v):
             + 0.5 * np.einsum("mnie,abmn->abie", g[o, o, o, v], t2, optimize=True)
     )
 
-    H2[o, o, v, v] = g[o, o, v, v]
+    H2[o, o, v, v] = g[o, o, v, v].copy()
 
     return H1, H2
 
@@ -447,7 +447,7 @@ def build_hbar_ccsdt(T, f, g, o, v):
             - 0.5 * np.einsum("mnef,abfimn->abie", g[o, o, v, v], t3, optimize=True)
     )
 
-    H2[o, o, v, v] = g[o, o, v, v]
+    H2[o, o, v, v] = g[o, o, v, v].copy()
 
     return H1, H2
 

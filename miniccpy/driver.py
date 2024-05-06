@@ -329,7 +329,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
 
     return R, omega, r0
 
-def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, max_size=20):
+def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20):
     from miniccpy.printing import print_amplitudes
     from miniccpy.utilities import biorthogonalize
     # check if requested EOMCC calculation is implemented in modules
@@ -352,7 +352,10 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence
     for n in range(nroot):
         print(f"    Solving for state #{n + 1}")
         tic = time.time()
-        L[n], omega[n] = calculation(R[n], T, omega0[n], H1, H2, o, v, maxit, convergence, max_size=max_size)
+        if method.lower() in ["left_eomcc3", "left_eomcc3-lin"]: # Linear EOMCC3 model using conventional Davidson diagonalization
+            L[n], omega[n] = calculation(R[n], T, omega0[n], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size)
+        else:
+            L[n], omega[n] = calculation(R[n], T, omega0[n], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
@@ -367,6 +370,7 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, maxit=80, convergence
         print("")
         print("    Left-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
         # check that the right eigenvalue is equal to the left eigenvalue
+        print("    Check: |E(right) - E(left)| = ", abs(omega0[n] - omega[n]))
         assert np.allclose(omega0[n], omega[n], atol=1.0e-06)
         print("")
 

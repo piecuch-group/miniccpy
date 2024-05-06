@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-from miniccpy.driver import run_scf_gamess, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
+from miniccpy.driver import run_scf_gamess, run_cc_calc, run_guess, run_eomcc_calc, get_hbar, run_lefteomcc_calc
 
 TEST_DATA_DIR = str(Path(__file__).parents[1].absolute() / "data")
 

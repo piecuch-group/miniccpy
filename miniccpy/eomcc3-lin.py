@@ -116,7 +116,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, m
         print("EOM-CC3 iterations did not converge")
 
     # Save the final converged root in an excitation tuple
-    R = (R[:n1].reshape(nunocc, nocc), R[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc))
+    R = (R[:n1].reshape(nunocc, nocc), R[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc), R[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc))
     # Calculate r0 for the root
     r0 = calc_r0(R[0], R[1], H1, H2, omega, o, v)
     # Compute relative excitation level diagnostic
