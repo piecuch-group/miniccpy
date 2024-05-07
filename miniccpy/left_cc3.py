@@ -2,6 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 from miniccpy.helper_cc3 import compute_leftcc3_intermediates, get_lr_intermediates
 
 def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
@@ -133,16 +134,16 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
     lh2 = np.zeros((nunocc, nunocc, nocc, nocc))
 
     old_energy = lcc_energy(l1, l2, lh1, lh2) + omega
+    # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
 
     print("    ==> Left-CC3 amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dT|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
 
-        # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-        h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
         # comptute L*T intermediates
         X1, X2 = get_lr_intermediates(l1, l2, t2, fock, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
         lh1 = LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v)
@@ -171,7 +172,7 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e,
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
                                                                                       res_norm, minutes, seconds))
     else:
         raise ValueError("left-CC3 iterations did not converge")

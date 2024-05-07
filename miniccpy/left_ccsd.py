@@ -2,6 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 
 def LH_singles(l1, l2, t2, H1, H2, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
@@ -112,7 +113,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
     print("    ==> Left-CCSD amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dL|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
@@ -143,7 +144,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         raise ValueError("left-CCSD iterations did not converge")
 

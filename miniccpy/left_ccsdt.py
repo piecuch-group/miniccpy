@@ -2,6 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 
 def get_ccsdt_intermediates(l2, l3, t2, t3, o, v):
     nu, _, no, _ = t2.shape
@@ -188,7 +189,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
     print("    ==> Left-CCSDT amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dL|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
@@ -225,7 +226,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         raise ValueError("left-CCSDT iterations did not converge")
 

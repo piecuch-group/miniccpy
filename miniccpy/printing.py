@@ -1,6 +1,7 @@
 import numpy as np
 import datetime
 from pyscf import symm
+from miniccpy.utilities import get_memory_usage
 
 WHITESPACE = "  "
 
@@ -50,6 +51,7 @@ def print_system_information(meanfield, nfrozen, hf_energy):
                 )
         )
     print("")
+    print(WHITESPACE, "Memory Usage:", get_memory_usage(), "MB")
     print(WHITESPACE, "Nuclear Repulsion Energy =", molecule.energy_nuc())
     print(WHITESPACE, "Reference Energy =", hf_energy)
     print("")
@@ -99,6 +101,7 @@ def print_custom_system_information_rhf(fock, nelectrons, nfrozen, hf_energy):
                 )
         )
     print("")
+    print(WHITESPACE, "Memory Usage:", get_memory_usage(), "MB")
     print(WHITESPACE, "Reference Energy =", hf_energy)
     print("")
 
@@ -146,6 +149,7 @@ def print_custom_system_information(fock, nelectrons, nfrozen, hf_energy):
                 )
         )
     print("")
+    print(WHITESPACE, "Memory Usage:", get_memory_usage(), "MB")
     print(WHITESPACE, "Reference Energy =", hf_energy)
     print("")
 

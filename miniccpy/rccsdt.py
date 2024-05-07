@@ -3,6 +3,7 @@ import numpy as np
 from miniccpy.energy import rcc_energy
 from miniccpy.helper_cc import get_rccs_intermediates, get_rccsd_intermediates
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 
 def singles_residual(t1, t2, t3, f, g, o, v):
     """Compute the projection of the CCSDT Hamiltonian on singles
@@ -199,7 +200,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
     print("    ==> R-CCSDT amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dT|")
+    print("     Iter               Energy                 |dE|                 |dT|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
@@ -233,7 +234,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         raise ValueError("CCSDT iterations did not converge")
 

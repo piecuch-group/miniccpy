@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from miniccpy.utilities import get_memory_usage
 from miniccpy.energy import lccsd_energy as lcc_energy
 
 def LT_intermediates(l2, t2):
@@ -125,7 +126,7 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
     print("    ==> Left-EOMCCSD iterations <==")
     print("    The initial guess energy = ", omega)
     print("")
-    print("     Iter               Energy                 |dE|                 |dL|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     curr_size = 1
     for niter in range(maxit):
         tic = time.time()
@@ -150,10 +151,10 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
         res_norm = np.linalg.norm(residual)
         delta_e = omega - omega_old
 
-        toc = time.time()
-        minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
         if res_norm < convergence and abs(delta_e) < convergence:
+            toc = time.time()
+            minutes, seconds = divmod(toc - tic, 60)
+            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
             break
 
         # update residual vector
@@ -185,6 +186,10 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
             curr_size = restart_block.shape[1] - 1
 
         curr_size += 1
+
+        toc = time.time()
+        minutes, seconds = divmod(toc - tic, 60)
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         print("Left-EOMCCSD iterations did not converge")
 

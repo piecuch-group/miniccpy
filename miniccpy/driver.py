@@ -3,6 +3,7 @@ import numpy as np
 from importlib import import_module
 from os.path import dirname, basename, isfile, join
 import glob
+from miniccpy.utilities import get_memory_usage
 
 # Obtain all modules in Miniccpy
 modules = glob.glob(join(dirname(__file__), "*.py"))
@@ -113,6 +114,7 @@ def run_mpn_calc(fock, g, o, v, method):
     print("    MPn Correlation Energy: {: 20.12f}".format(e_corr))
     print("")
     print("    MPn calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
 
     return e_corr
@@ -156,6 +158,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
     print_amplitudes(T[0], T[1], PRINT_THRESH, rhf=flag_rhf)
     print("")
     print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
 
     return T, e_corr
@@ -197,6 +200,7 @@ def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07
     print_amplitudes(L[0], L[1], PRINT_THRESH, rhf=flag_rhf)
     print("")
     print("    Left-CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
     return L
 
@@ -251,6 +255,7 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
     print("    Initial Guess Vectors:")
     print("    -----------------------")
     print("    Guess calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB\n")
     for i, e in enumerate(omega0):
         print("    Root ", i + 1)
         print("    Energy = ", np.real(e))
@@ -328,6 +333,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
             print_dip_amplitudes(R[n][0], R[n][1], PRINT_THRESH)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        print(f"    Memory usage: {get_memory_usage()} MB")
         print("")
 
     return R, omega, r0
@@ -374,6 +380,7 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, ma
             print_amplitudes(L[n][0], L[n][1], PRINT_THRESH, rhf=flag_rhf)
         print("")
         print("    Left-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+        print(f"    Memory usage: {get_memory_usage()} MB")
         # check that the right eigenvalue is equal to the left eigenvalue
         print("    Check: |E(right) - E(left)| = ", abs(omega0[n] - omega[n]))
         assert np.allclose(omega0[n], omega[n], atol=1.0e-06)
@@ -409,6 +416,7 @@ def run_correction(T, L, fock, H1, H2, o, v, method):
         print(f"    Triples correction energy ({key}): {value}")
     print("")
     print("    CC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
     return e_correction
 
@@ -434,5 +442,6 @@ def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method):
         print(f"    Triples correction energy ({key}): {value}")
     print("")
     print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
     return e_correction

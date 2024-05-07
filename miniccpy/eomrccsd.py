@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from miniccpy.utilities import get_memory_usage
 
 def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
@@ -42,7 +43,7 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     print("    ==> R-EOMCCSD iterations <==")
     print("    The initial guess energy = ", omega)
     print("")
-    print("     Iter               Energy                 |dE|                 |dR|")
+    print("     Iter               Energy                 |dE|                 |dR|     Wall Time     Memory")
     curr_size = 1
     for niter in range(maxit):
         tic = time.time()
@@ -67,10 +68,10 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
         res_norm = np.linalg.norm(residual)
         delta_e = omega - omega_old
 
-        toc = time.time()
-        minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
         if res_norm < convergence and abs(delta_e) < convergence:
+            toc = time.time()
+            minutes, seconds = divmod(toc - tic, 60)
+            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
             break
 
         # update residual vector
@@ -102,11 +103,24 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
             curr_size = restart_block.shape[1] - 1
 
         curr_size += 1
+
+        toc = time.time()
+        minutes, seconds = divmod(toc - tic, 60)
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         print("EOMCCSD iterations did not converge")
 
     # Save the final converged root in an excitation tuple
     R = (R[:n1].reshape(nunocc, nocc), R[n1:].reshape(nunocc, nunocc, nocc, nocc))
+    # Normalize the R vector
+    #for a in range(nunocc):
+    #    for i in range(nocc):
+    #        R[0][a, i] /= 2.0
+    #for a in range(nunocc):
+    #    for b in range(nunocc):
+    #        for i in range(nocc):
+    #            for j in range(nocc):
+    #                R[1][a, b, i, j] /= 4.0
     # Calculate r0 for the root
     r0 = calc_r0_rhf(R[0], R[1], H1, H2, omega, o, v)
     # Compute relative excitation level diagnostic
@@ -117,8 +131,8 @@ def update(r1, r2, omega, e_ai, e_abij):
     """Perform the diagonally preconditioned residual (DPR) update
     to get the next correction vector."""
 
-    r1 /= (omega - e_ai)
-    r2 /= (omega - e_abij)
+    r1 /= (omega - e_ai + 1.0e-012)
+    r2 /= (omega - e_abij + 1.0e-012)
 
     return np.hstack([r1.flatten(), r2.flatten()])
 

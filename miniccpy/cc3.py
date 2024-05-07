@@ -4,6 +4,7 @@ from miniccpy.energy import cc_energy
 from miniccpy.helper_cc import get_ccs_intermediates
 from miniccpy.helper_cc3 import compute_cc3_intermediates
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 
 def singles_residual(t1, t2, f, g, o, v, I_vooo, I_vvov, e_abc):
     """Compute the projection of the CCSDT Hamiltonian on singles
@@ -145,7 +146,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
     print("    ==> CC3 amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dT|")
+    print("     Iter               Energy                 |dE|                 |dT|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
@@ -178,7 +179,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         raise ValueError("CC3 iterations did not converge")
 

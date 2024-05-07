@@ -24,17 +24,14 @@ def biorthogonalize(L, R):
     # R = np.linalg.solve(MU, R.T) # R/MU
 
 
-def print_memory_usage():
-    """Displays the percentage of used RAM and available memory. Useful for
+def get_memory_usage():
+    """Returns the amount of memory currently used in MB. Useful for
     investigating the memory usages of various routines."""
     import os
-
     import psutil
-
     current_process = psutil.Process(os.getpid())
     memory = current_process.memory_info().rss
-    print(int(memory / (1024 * 1024)), "MB")
-    return
+    return memory / (1024 * 1024)
 
 
 def clean_up(fid, n):

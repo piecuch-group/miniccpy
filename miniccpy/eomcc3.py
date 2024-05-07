@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from miniccpy.utilities import get_memory_usage
 from miniccpy.helper_cc3 import compute_eomcc3_intermediates
 
 def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
@@ -46,7 +47,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
     print("    ==> EOM-CC3 iterations <==")
     print("    The initial guess energy = ", omega)
     print("")
-    print("     Iter               Energy                 |dE|                 |dR|")
+    print("     Iter               Energy                 |dE|                 |dR|     Wall Time     Memory")
     for niter in range(maxit):
         tic = time.time()
 
@@ -72,7 +73,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
         if res_norm < convergence and abs(delta_e) < convergence:
             toc = time.time()
             minutes, seconds = divmod(toc - tic, 60)
-            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
+            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
             break
 
         # Perturbational update step u_K = r_K/(omega-D_K), where D_K = energy denominator
@@ -94,7 +95,7 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
         # Print iteration
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         print("EOM-CC3 iterations did not converge")
 
@@ -140,7 +141,6 @@ def build_HR1(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
     X1 -= 0.5 * np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
     X1 += 0.5 * np.einsum("anef,efin->ai", H2[v, o, v, v], r2, optimize=True)
     X1 += np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
-    #X1 += 0.25 * np.einsum("mnef,aefimn->ai", H2[o, o, v, v], r3, optimize=True)
     # Parts contracted with R3
     for i in range(no):
         for j in range(i + 1, no):
@@ -201,12 +201,6 @@ def build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
     X2 -= 0.5 * np.einsum("ni,abnj->abij", Q2, t2, optimize=True)  # A(ij)
 
     I_ov = np.einsum("mnef,fn->me", H2[o, o, v, v], r1, optimize=True)
-    #X2 += 0.25 * np.einsum("me,abeijm->abij", I_ov, t3, optimize=True)
-
-    #X2 += 0.25 * np.einsum("me,abeijm->abij", H1[o, v], r3, optimize=True)
-    #X2 -= 0.5 * 0.5 * np.einsum("mnjf,abfimn->abij", H2[o, o, o, v], r3, optimize=True)
-    #X2 += 0.5 * 0.5 * np.einsum("bnef,aefijn->abij", H2[v, o, v, v], r3, optimize=True)
-
     # Parts contracted with T3/R3
     for i in range(no):
         for j in range(i + 1, no):

@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from miniccpy.utilities import get_memory_usage
 from miniccpy.helper_cc3 import compute_leftcc3_intermediates, get_lr_intermediates, compute_eomcc3_intermediates
 
 def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
@@ -34,10 +35,13 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         out_of_core = False
         diis_engine = DIIS(ndim, diis_size, out_of_core)
 
+    # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
+
     print("    ==> Left-EOM-CC3 iterations <==")
     print("    The initial guess energy = ", omega)
     print("")
-    print("     Iter               Energy                 |dE|                 |dR|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     for niter in range(maxit):
         tic = time.time()
 
@@ -50,7 +54,9 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         # Compute H*R for a given omega
         sigma = LH(omega, 
                    L[:n1].reshape(nunocc, nocc), L[n1:].reshape(nunocc, nunocc, nocc, nocc),
-                   t1, t2, fock, g, H1, H2, o, v, e_abc)
+                   t1, t2, 
+                   fock, g, H1, H2, h_vvov, h_vooo, h_voov, h_vvvv, h_oooo, 
+                   o, v, e_abc)
 
         # Update the value of omega
         omega = np.dot(sigma.T, L)
@@ -63,7 +69,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         if res_norm < convergence and abs(delta_e) < convergence:
             toc = time.time()
             minutes, seconds = divmod(toc - tic, 60)
-            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
+            print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
             break
 
         # Perturbational update step u_K = l_K/(omega-D_K), where D_K = energy denominator
@@ -85,7 +91,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         # Print iteration
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(niter, omega, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(niter, omega, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         print("Left-EOM-CC3 iterations did not converge")
 
@@ -176,12 +182,10 @@ def update(l1, l2, omega, e_ai, e_abij):
     l2 /= (omega - e_abij)
     return np.hstack([l1.flatten(), l2.flatten()])
 
-def LH(omega, l1, l2, t1, t2, f, g, H1, H2, o, v, e_abc):
+def LH(omega, l1, l2, t1, t2, f, g, H1, H2, h_vvov, h_vooo, h_voov, h_vvvv, h_oooo, o, v, e_abc):
     """Compute the matrix-vector product L * H, where
     H is the CCSDT similarity-transformed Hamiltonian and L is
     the EOMCCSDT linear de-excitation operator."""
-    # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, f, g, o, v)
     # comptute L*T intermediates
     X1, X2 = get_lr_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
     LH1 = LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v)

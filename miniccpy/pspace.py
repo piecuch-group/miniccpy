@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from miniccpy.utilities import get_memory_usage
 
 def active_hole(x, nocc, nact):
     if x < nocc - nact:
@@ -47,6 +48,7 @@ def get_active_triples_pspace(no, nu, nacto=0, nactu=0, num_active=1):
     print(f"   Active space contains {t3_excitations.shape[0]} triples")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return t3_excitations
 
@@ -78,5 +80,6 @@ def get_active_4h2p_pspace(no, nu, nacto=0, num_active=2):
     print(f"   Active space contains {r3_excitations.shape[0]} 4p2h excitations")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
+    print(f"    Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return r3_excitations

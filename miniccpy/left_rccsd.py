@@ -2,6 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
+from miniccpy.utilities import get_memory_usage
 
 def LT_intermediates(l2, t2):
     """Compute L2*T2-type one-body intermediates."""
@@ -85,7 +86,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
     print("    ==> Left-RCCSD amplitude equations <==")
     print("")
-    print("     Iter               Energy                 |dE|                 |dL|")
+    print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
     for idx in range(maxit):
 
         tic = time.time()
@@ -100,8 +101,6 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
         l1 += lh1
         l2 += lh2
 
-        #print("|LH1| = ", np.sum(abs(lh1.flatten())))
-        #print("|LH2| = ", np.sum(abs(lh2.flatten())))
         res_norm = np.linalg.norm(lh1.flatten()) + np.linalg.norm(lh2.flatten())
         current_energy = lcc_energy(l1, l2, lh1, lh2) + omega
         delta_e = np.abs(old_energy - current_energy)
@@ -120,7 +119,7 @@ def kernel(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n
 
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
-        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s".format(idx, current_energy, delta_e, res_norm, minutes, seconds))
+        print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
     else:
         print("left-CCSD iterations did not converge")
 
