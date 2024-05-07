@@ -254,3 +254,85 @@ def compute_leftcc3_intermediates(t1, t2, f, g, o, v):
     )
     h_vvov -= np.transpose(h_vvov, (1, 0, 2, 3))
     return h_vvov, h_vooo, h_voov, h_vvvv, h_oooo
+
+def get_lr_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v):
+    nu, _, no, _ = t2.shape
+    X1 = {"vo": []}
+    X2 = {"ooov": [], "vovv": []}
+    # (L2 * T3)_C
+    #X1["vo"] = 0.25 * np.einsum("efmn,aefimn->ai", l2, t3, optimize=True)
+    X1["vo"] = np.zeros((nu, no))
+    for i in range(no):
+        for j in range(i + 1, no):
+            for k in range(j + 1, no):
+                # fock denominator for occupied
+                denom_occ = f[o, o][i, i] + f[o, o][j, j] + f[o, o][k, k]
+                # -1/2 A(k/ij)A(abc) I(amij) * t(bcmk)
+                t3_abc = -0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, i, j], t2[:, :, :, k], optimize=True)
+                t3_abc += 0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, k, j], t2[:, :, :, i], optimize=True)
+                t3_abc += 0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, i, k], t2[:, :, :, j], optimize=True)
+                # 1/2 A(i/jk)A(abc) I(abie) * t(ecjk)
+                t3_abc += 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, i, :], t2[:, :, j, k], optimize=True)
+                t3_abc -= 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, j, :], t2[:, :, i, k], optimize=True)
+                t3_abc -= 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, k, :], t2[:, :, j, i], optimize=True)
+                # Antisymmetrize A(abc)
+                t3_abc -= np.transpose(t3_abc, (1, 0, 2)) + np.transpose(t3_abc, (2, 1, 0)) # A(a/bc)
+                t3_abc -= np.transpose(t3_abc, (0, 2, 1)) # A(bc)
+                # Divide t_abc by the denominator
+                t3_abc /= (denom_occ + e_abc)
+                # 1/4 A(i/jk) l2(bcjk) * t3(abcijk)
+                X1["vo"][:, i] += 0.5 * np.einsum("bc,abc->a", l2[:, :, j, k], t3_abc, optimize=True)
+                X1["vo"][:, j] -= 0.5 * np.einsum("bc,abc->a", l2[:, :, i, k], t3_abc, optimize=True)
+                X1["vo"][:, k] -= 0.5 * np.einsum("bc,abc->a", l2[:, :, j, i], t3_abc, optimize=True)
+    # (L3 * T2)_C
+    #X2["ooov"] = 0.5 * np.einsum('aefijn,efmn->jima', l3, t2, optimize=True)
+    X2["ooov"] = np.zeros((no, no, no, nu))
+    #X2["vovv"] = -0.5 * np.einsum('abfimn,efmn->eiba', l3, t2, optimize=True)
+    X2["vovv"] = np.zeros((nu, no, nu, nu))
+    for i in range(no):
+        for j in range(i + 1, no):
+            for k in range(j + 1, no):
+                # fock denominator for occupied
+                denom_occ = f[o, o][i, i] + f[o, o][j, j] + f[o, o][k, k]
+                l3_abc = 0.5 * (
+                        np.einsum("eba,ec->abc", H2[v, o, v, v][:, i, :, :], l2[:, :, j, k], optimize=True)
+                        -np.einsum("eba,ec->abc", H2[v, o, v, v][:, j, :, :], l2[:, :, i, k], optimize=True)
+                        -np.einsum("eba,ec->abc", H2[v, o, v, v][:, k, :, :], l2[:, :, j, i], optimize=True)
+                )
+                l3_abc -= 0.5 * (
+                        np.einsum("ma,bcm->abc", H2[o, o, o, v][j, i, :, :], l2[:, :, :, k], optimize=True)
+                        -np.einsum("ma,bcm->abc", H2[o, o, o, v][k, i, :, :], l2[:, :, :, j], optimize=True)
+                        -np.einsum("ma,bcm->abc", H2[o, o, o, v][j, k, :, :], l2[:, :, :, i], optimize=True)
+                )
+                l3_abc += 0.5 * (
+                        np.einsum("ab,c->abc", H2[o, o, v, v][i, j, :, :], l1[:, k], optimize=True)
+                        -np.einsum("ab,c->abc", H2[o, o, v, v][k, j, :, :], l1[:, i], optimize=True)
+                        -np.einsum("ab,c->abc", H2[o, o, v, v][i, k, :, :], l1[:, j], optimize=True)
+                )
+                l3_abc += 0.5 * (
+                        np.einsum("a,bc->abc", H1[o, v][i, :], l2[:, :, j, k], optimize=True)
+                        -np.einsum("a,bc->abc", H1[o, v][j, :], l2[:, :, i, k], optimize=True)
+                        -np.einsum("a,bc->abc", H1[o, v][k, :], l2[:, :, j, i], optimize=True)
+                )
+                # antisymmetrize A(abc)
+                l3_abc -= np.transpose(l3_abc, (1, 0, 2)) + np.transpose(l3_abc, (2, 1, 0)) # (a/bc)
+                l3_abc -= np.transpose(l3_abc, (0, 2, 1)) # (bc)
+                # Divide l_abc by the denominator
+                l3_abc /= (omega + denom_occ + e_abc)
+                # X2(jima) = 1/2 A(k/ij) l3(aefijk) * t2(efmk)
+                X2["ooov"][i, j, :, :] -= 0.5 * np.einsum("aef,efm->ma", l3_abc, t2[:, :, :, k], optimize=True)
+                X2["ooov"][j, k, :, :] -= 0.5 * np.einsum("aef,efm->ma", l3_abc, t2[:, :, :, i], optimize=True)
+                X2["ooov"][i, k, :, :] += 0.5 * np.einsum("aef,efm->ma", l3_abc, t2[:, :, :, j], optimize=True)
+                # X2(eiba) = -1/2 A(i/jk) l3(abfijk) * t2(efjk)
+                X2["vovv"][:, i, :, :] -= np.einsum("abf,ef->eba", l3_abc, t2[:, :, j, k], optimize=True)
+                X2["vovv"][:, j, :, :] += np.einsum("abf,ef->eba", l3_abc, t2[:, :, i, k], optimize=True)
+                X2["vovv"][:, k, :, :] += np.einsum("abf,ef->eba", l3_abc, t2[:, :, j, i], optimize=True)
+    # antisymmetrize 
+    for i in range(no):
+        for j in range(i + 1, no):
+            X2["ooov"][j, i, :, :] = -X2["ooov"][i, j, :, :]
+    # clear diagonal elements
+    for a in range(nu):
+        X2["vovv"][:, :, a, a] *= 0.0
+    return X1, X2
+

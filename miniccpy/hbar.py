@@ -529,7 +529,7 @@ def build_hbar_cc3(T, f, g, o, v):
             + 0.5 * np.einsum("mnie,abmn->abie", g[o, o, o, v], t2, optimize=True)
     )
 
-    H2[o, o, v, v] = g[o, o, v, v]
+    H2[o, o, v, v] = g[o, o, v, v].copy()
 
     # Parts contracted with T3
     eps = np.diagonal(f)

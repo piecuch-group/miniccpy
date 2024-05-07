@@ -98,7 +98,7 @@ def update(l1, l2, l3, omega, e_ai, e_abij, e_abcijk):
     l3 /= (omega - e_abcijk)
     return np.hstack([l1.flatten(), l2.flatten(), l3.flatten()])
 
-def LH(l1, l2, l3, t1, t2, t3, f, g, H1, H2, o, v):
+def LH(l1, l2, l3, t1, t2, t3, f, g, H1, H2, omega, e_abc, o, v):
     """Compute the matrix-vector product L * H, where
     H is the CCSDT similarity-transformed Hamiltonian and L is
     the EOMCCSDT linear de-excitation operator."""
@@ -141,6 +141,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, ma
     n = np.newaxis
     e_abcijk = (f_eps[v, n, n, n, n, n] + f_eps[n, v, n, n, n, n] + f_eps[n, n, v, n, n, n]
                 - f_eps[n, n, n, o, n, n] - f_eps[n, n, n, n, o, n] - f_eps[n, n, n, n, n, o])
+    e_abc = -f_eps[v, n, n] - f_eps[n, v, n] - f_eps[n, n, v]
     e_abij = (eps[v, n, n, n] + eps[n, v, n, n] - eps[n, n, o, n] - eps[n, n, n, o])
     e_ai = (eps[v, n] - eps[n, o])
 
@@ -167,7 +168,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, ma
     sigma[:, 0] = LH(L[:n1].reshape(nunocc, nocc),
                      L[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc),
                      L[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc),
-                     t1, t2, t3, fock, g, H1, H2, o, v)
+                     t1, t2, t3, fock, g, H1, H2, omega, e_abc, o, v)
 
     print("    ==> Left-EOMCC3 iterations <==")
     print("    The initial guess energy = ", omega)
@@ -222,7 +223,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, ma
             sigma[:, curr_size] = LH(q[:n1].reshape(nunocc, nocc),
                                      q[n1:n1+n2].reshape(nunocc, nunocc, nocc, nocc),
                                      q[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc),
-                                     t1, t2, t3, fock, g, H1, H2, o, v)
+                                     t1, t2, t3, fock, g, H1, H2, omega, e_abc, o, v)
         else:
             # Basic restart - use the last approximation to the eigenvector
             print("       **Deflating subspace**")
@@ -232,7 +233,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, ma
                 sigma[:, j] = LH(restart_block[:n1, j].reshape(nunocc, nocc),
                                  restart_block[n1:n1+n2, j].reshape(nunocc, nunocc, nocc, nocc),
                                  restart_block[n1+n2:, j].reshape(nunocc, nunocc, nunocc, nocc, nocc, nocc),
-                                 t1, t2, t3, fock, g, H1, H2, o, v)
+                                 t1, t2, t3, fock, g, H1, H2, omega, e_abc, o, v)
             curr_size = restart_block.shape[1] - 1
 
         curr_size += 1

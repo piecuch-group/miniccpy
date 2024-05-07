@@ -12,7 +12,7 @@ MODULES = [module for module in __all__]
 RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "left_eomrccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
 # amplitude printing threshold
-PRINT_THRESH = 0.05
+PRINT_THRESH = 0.09
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
@@ -117,7 +117,7 @@ def run_mpn_calc(fock, g, o, v, method):
 
     return e_corr
 
-def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, use_quasi=False, t3_excitations=None):
+def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=0, out_of_core=False, use_quasi=False, t3_excitations=None):
     """Run the ground-state CC calculation specified by `method`."""
     from miniccpy.printing import print_amplitudes
 
@@ -160,7 +160,7 @@ def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shi
 
     return T, e_corr
 
-def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=3, out_of_core=False, davidson=False):
+def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=0, out_of_core=False, davidson=False, g=None):
     """Run the ground-state left-CC calculation specified by `method`."""
     from miniccpy.printing import print_amplitudes
 
@@ -182,7 +182,10 @@ def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07
         diis_size = 1000 
     # Run the linear equation solver
     tic = time.time()
-    L, omega = calculation(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    if method in ["left_cc3", "left_cc3-full"]:
+        L, omega = calculation(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    else:
+        L, omega = calculation(T, fock, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
     toc = time.time()
 
     minutes, seconds = divmod(toc - tic, 60)
@@ -329,7 +332,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
 
     return R, omega, r0
 
-def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20):
+def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, r3_excitations=None):
     from miniccpy.printing import print_amplitudes
     from miniccpy.utilities import biorthogonalize
     # check if requested EOMCC calculation is implemented in modules
@@ -352,8 +355,10 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, ma
     for n in range(nroot):
         print(f"    Solving for state #{n + 1}")
         tic = time.time()
-        if method.lower() in ["left_eomcc3", "left_eomcc3-lin"]: # Linear EOMCC3 model using conventional Davidson diagonalization
+        if method.lower()  == "left_eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization
             L[n], omega[n] = calculation(R[n], T, omega0[n], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size)
+        elif method.lower() == "left_eomcc3": # Folded EOMCC3 model using excited-state DIIS algorithm
+            L[n], omega[n] = calculation(R[n], T, omega0[n], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         else:
             L[n], omega[n] = calculation(R[n], T, omega0[n], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()

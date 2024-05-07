@@ -5,7 +5,7 @@ for the lowest-lying singlet state of the H2O molecule at the Re and
 """
 
 import numpy as np
-from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
+from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar, run_leftcc_calc, run_lefteomcc_calc
 
 basis = '6-31g'
 nfrozen = 0
@@ -30,8 +30,11 @@ T, Ecorr  = run_cc_calc(fock, g, o, v, method='cc3')
 
 H1, H2 = get_hbar(T, fock, g, o, v, method='cc3')
 
+L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_cc3", g=g)
+
 R, omega_guess = run_guess(H1, H2, o, v, 5, method="cis", mult=1)
 R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eomcc3", state_index=[0], fock=fock, g=g)
+L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method="left_eomcc3", fock=fock, g=g)
 
 #
 # Check the results
