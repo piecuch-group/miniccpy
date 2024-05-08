@@ -209,7 +209,7 @@ def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
             t2, r2,
             H1[o, o], H1[v, v],
             H2[v, v, o, v], H2[v, o, o, o], I_oooo, I_oovv,
-            H2[o, o, o, o], H2[v, o, o, v], H2[v, v, v, v],
+            H2[o, o, o, o], H2[v, o, o, v], H2[v, v, v, v].transpose(3, 2, 1, 0),
     )
     return X3, r3_excitations
 

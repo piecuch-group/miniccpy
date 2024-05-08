@@ -38,11 +38,12 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
 
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
             maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10,
-            symmetry=None, cartesian=False, unit="Bohr", uhf=False, rhf=False):
+            symmetry=None, cartesian=False, unit="Bohr", uhf=False, rhf=False,
+            return_orbsym=False):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
-    from pyscf import gto, scf
+    from pyscf import gto, scf, symm
     from miniccpy.printing import print_system_information, print_custom_system_information
     from miniccpy.integrals import get_integrals_from_pyscf, get_integrals_from_pyscf_uhf, get_integrals_from_pyscf_rhf
 
@@ -74,6 +75,16 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     mf.conv_tol = convergence
     mf.kernel()
 
+    # Get list of orbital symmetry labels
+    orbsym = [x.upper() for x in symm.label_orb_symm(mol, mol.irrep_name, mol.symm_orb, mf.mo_coeff)]
+    # make this into spinorbital labels
+    sporbsym = []
+    for p in range(2 * len(orbsym)):
+        if p % 2 == 0:
+            sporbsym.append(orbsym[p // 2])
+        else:
+            sporbsym.append(orbsym[(p - 1) // 2])
+
     # 1-, 2-electron spinorbital integrals in physics notation
     if uhf:
         e1int, e2int, fock, e_hf, nuclear_repulsion = get_integrals_from_pyscf_uhf(mf)
@@ -91,7 +102,10 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     else:
         print_system_information(mf, nfrozen, e_hf)
 
-    return fock, e2int, e_hf, corr_occ, corr_unocc
+    if return_orbsym:
+        return fock, e2int, e_hf, corr_occ, corr_unocc, sporbsym[nfrozen:]
+    else:
+        return fock, e2int, e_hf, corr_occ, corr_unocc
 
 def run_mpn_calc(fock, g, o, v, method):
     """Compute the Moller-Plesett energy correction specified

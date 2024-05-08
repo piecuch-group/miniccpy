@@ -209,7 +209,8 @@ module dipeom4_p
                      do jdet = loc_arr(1,idx), loc_arr(2,idx)
                         c = r4_excits(jdet,1); d = r4_excits(jdet,2);
                         ! compute < abijkl | h2(vvvv) | cdijkl >
-                        hmatel = h2_vvvv(a,b,c,d)
+                        !hmatel = h2_vvvv(a,b,c,d)
+                        hmatel = h2_vvvv(d,c,b,a) ! reorder for cache efficiency; (d,c) changes faster than (b,a)
                         ! compute < abijkl | h1(vv) | cdijkl >
                         hmatel1 = 0.0d0; hmatel2 = 0.0d0; hmatel3 = 0.0d0; hmatel4 = 0.0d0;
                         if (a==c) hmatel1 = h1_vv(b,d)   ! (1)      < abijkl | h1(vv) | adijkl > 
