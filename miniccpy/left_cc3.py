@@ -173,7 +173,6 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
         toc = time.time()
         minutes, seconds = divmod(toc - tic, 60)
         print("    {: 5d} {: 20.12f} {: 20.12f} {: 20.12f}    {:.2f}m {:.2f}s    {:.2f} MB".format(idx, current_energy, delta_e, res_norm, minutes, seconds, get_memory_usage()))
-                                                                                      res_norm, minutes, seconds))
     else:
         raise ValueError("left-CC3 iterations did not converge")
 
