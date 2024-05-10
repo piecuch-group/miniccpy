@@ -15,7 +15,7 @@ H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 
 nroot = 4
 R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4", state_index=[0, 3])
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4", state_index=[3])
 
 #
 # Check the results

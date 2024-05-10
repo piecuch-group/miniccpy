@@ -178,6 +178,7 @@ def build_HR2(r1, r2, r3, t1, t2, H1, H2, o, v):
     X2 += (3.0 / 6.0) * np.einsum("be,aeck->abck", H1[v, v], r2, optimize=True)
     X2 += (3.0 / 12.0) * np.einsum("abef,efck->abck", H2[v, v, v, v], r2, optimize=True)
     X2 += (3.0 / 6.0) * np.einsum("cmke,abem->abck", H2[v, o, o, v], r2, optimize=True)
+    # parts contracted with R(4h-2p)
     X2 += (1.0 / 6.0) * np.einsum("me,abcekm->abck", H1[o, v], r3, optimize=True)
     X2 += (3.0 / 12.0) * np.einsum("cnef,abefkn->abck", H2[v, o, v, v], r3, optimize=True)
     X2 -= (1.0 / 12.0) * np.einsum("mnkf,abcfmn->abck", H2[o, o, o, v], r3, optimize=True)

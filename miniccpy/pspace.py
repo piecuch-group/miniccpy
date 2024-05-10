@@ -114,3 +114,48 @@ def get_active_4h2p_pspace(no, nu, nacto=0, num_active=2, point_group="C1", orbs
     print(f"    Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return r3_excitations
+
+def get_active_4h2p_pspace_array(no, nu, nacto=0, num_active=2, point_group="C1", orbsym=None, target_irrep="A"):
+    from miniccpy.symmetry import get_pg_irreps, get_reference_symmetry
+
+    def count_active_occ(occ):
+        return sum([active_hole(i, no, nacto) for i in occ])
+
+    pg_irrep_to_number = get_pg_irreps(point_group)
+    if orbsym is None:
+        orbsym = ["A" for i in range(no + nu)]
+
+    isym = [pg_irrep_to_number[p] for p in orbsym]
+    reference_irrep = get_reference_symmetry(no, point_group, isym)
+    sym_target = pg_irrep_to_number[target_irrep]
+    sym_ref = pg_irrep_to_number[reference_irrep]
+
+    print(f"   Constructing triples list for DIP-EOMCCSD(4h-2p)({'I' * num_active})-type P space")
+    print("   ---------------------------------------------------")
+    print("   Total number of occupied orbitals = ", no)
+    print("   Number of active occupied orbitals = ", nacto)
+    print("   Reference Irrep = ", reference_irrep)
+    print(f"   Target Irrep = {target_irrep} ({point_group})")
+
+    tic = time.perf_counter()
+    pspace = np.zeros((nu, nu, no, no, no, no), dtype=np.int32)
+    cnt = 0
+    for i in range(no):
+        for j in range(i + 1, no):
+            for k in range(j + 1, no):
+                for l in range(k + 1, no):
+                    if count_active_occ([i, j, k, l]) < num_active: continue
+                    sym_occ = sym_ref ^ isym[i] ^ isym[j] ^ isym[k] ^ isym[l]
+                    for c in range(nu):
+                        for d in range(c + 1, nu):
+                            sym_unocc = isym[c + no] ^ isym[d + no]
+                            if sym_occ ^ sym_unocc != sym_target: continue
+                            pspace[c, d, i, j, k, l] = 1
+                            cnt += 1
+    # Print the number of triples of a given spincase 
+    print(f"   Active space contains {cnt} 4p2h excitations")
+    toc = time.perf_counter()
+    minutes, seconds = divmod(toc - tic, 60)
+    print(f"    Memory usage: {get_memory_usage()} MB")
+    print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
+    return pspace

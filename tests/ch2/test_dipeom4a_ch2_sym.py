@@ -1,6 +1,6 @@
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
-from miniccpy.pspace import get_active_4h2p_pspace
+from miniccpy.pspace import get_active_4h2p_pspace, get_active_4h2p_pspace_array
 
 basis = '6-31g'
 nfrozen = 0
@@ -24,13 +24,16 @@ omega = np.zeros(2)
 no, nu = fock[o, v].shape
 
 # state = 0 is a B1-symmetric triplet
-r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10, point_group="C2V", orbsym=orbsym, target_irrep="B1")
-R_b1, e_b1, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0], r3_excitations=r3_excitations)
-omega[0] = e_b1[0]
+#r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10, point_group="C2V", orbsym=orbsym, target_irrep="B1")
+#R_b1, e_b1, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0], r3_excitations=r3_excitations)
+#omega[0] = e_b1[0]
 
 # state = 1 is an A1-symmetric singlet
-r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10, point_group="C2V", orbsym=orbsym, target_irrep="A1")
+#r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10, point_group="C2V", orbsym=orbsym, target_irrep="A1")
+r3_excitations = get_active_4h2p_pspace(no, nu, nacto=4)
+#pspace = get_active_4h2p_pspace_array(no, nu, nacto=4)
 R_a1, e_a1, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[3], r3_excitations=r3_excitations)
+#R_a1, e_a1, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p_slow", state_index=[3], pspace=pspace)
 omega[1] = e_a1[0]
 
 #

@@ -293,7 +293,7 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
 
     return np.real(R0), np.real(omega0)
 
-def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, r3_excitations=None):
+def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6, do_diis=True, r3_excitations=None, pspace=None):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
     from miniccpy.printing import print_amplitudes, print_dip_amplitudes
@@ -328,6 +328,8 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         else: # All other EOMCC calculations using conventional Davidson
             if r3_excitations is not None:
                 R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, r3_excitations, maxit, convergence, max_size=max_size)
+            elif pspace is not None:
+                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size, pspace=pspace)
             else:
                 R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size)
         toc = time.time()
