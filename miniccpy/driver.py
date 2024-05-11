@@ -103,7 +103,7 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
         print_system_information(mf, nfrozen, e_hf)
 
     if return_orbsym:
-        return fock, e2int, e_hf, corr_occ, corr_unocc, sporbsym[nfrozen:]
+        return fock, e2int, e_hf, corr_occ, corr_unocc, sporbsym[2*nfrozen:]
     else:
         return fock, e2int, e_hf, corr_occ, corr_unocc
 

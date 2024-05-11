@@ -16,16 +16,18 @@ H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 nroot = 4
 R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
 
-omega = np.zeros(1)
 no, nu = fock[o, v].shape
-# state = 3 is an AG-symmetric singlet
-r3_excitations = get_active_4h2p_pspace(no, nu, nacto=16)
-R_a1, e_a1, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0, 3], r3_excitations=r3_excitations, max_size=80)
-omega[0] = e_a1[0]
+r3_excitations = get_active_4h2p_pspace(no, nu, nacto=16, orbsym=orbsym, point_group="D2H", target_irrep="B1G")
+R_singlet, omega_triplet, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0], r3_excitations=r3_excitations, max_size=80)
+
+r3_excitations = get_active_4h2p_pspace(no, nu, nacto=16, orbsym=orbsym, point_group="D2H", target_irrep="AU")
+R_singlet, omega_singlet, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[3], r3_excitations=r3_excitations, max_size=80)
+
+omega = np.array([omega_triplet[0], omega_singlet[0]])
 
 #
 # Check the results
 #
-#expected_vee = [-0.1333365316]
-#for i, vee in enumerate(expected_vee):
-#    assert np.allclose(omega[i], vee, atol=1.0e-07)
+expected_vee = [-0.133359091568, -0.133336529768]
+for i, vee in enumerate(expected_vee):
+    assert np.allclose(omega[i], vee, atol=1.0e-07)
