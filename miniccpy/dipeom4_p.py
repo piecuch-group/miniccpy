@@ -40,13 +40,11 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     G = np.zeros((max_size, max_size))
 
     # Initial values
-    #tmp = r3_excitations.copy()
     B[0, :] = R
     sigma[0, :], r3_excitations = HR(R[:n1].reshape(nocc, nocc),
                      R[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                      R[n1+n2:], r3_excitations,
                      t1, t2, H1, H2, o, v, do_r3)
-    #print(np.linalg.norm(r3_excitations - tmp))
 
     print("    ==> DIP-EOMCC(4h-2p)(P) iterations <==")
     print("")
@@ -102,7 +100,6 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
                                      q[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                                      q[n1+n2:], r3_excitations,
                                      t1, t2, H1, H2, o, v, do_r3)
-            #print(np.linalg.norm(r3_excitations - tmp))
         else:
             # Basic restart - use the last approximation to the eigenvector
             print("       **Deflating subspace**")

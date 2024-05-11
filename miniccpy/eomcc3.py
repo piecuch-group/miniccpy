@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from miniccpy.utilities import get_memory_usage
-from miniccpy.helper_cc3 import compute_eomcc3_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates, compute_eomcc3_intermediates
 
 def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
     """
@@ -44,6 +44,9 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
         out_of_core = False
         diis_engine = DIIS(ndim, diis_size, out_of_core)
 
+    # Compute CCS Hbar intermediates
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_ccs_intermediates(t1, t2, fock, g, o, v)
+
     print("    ==> EOM-CC3 iterations <==")
     print("    The initial guess energy = ", omega)
     print("")
@@ -60,7 +63,9 @@ def kernel(R0, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, d
         # Compute H*R for a given omega
         sigma = HR(omega, 
                    R[:n1].reshape(nunocc, nocc), R[n1:].reshape(nunocc, nunocc, nocc, nocc),
-                   t1, t2, fock, g, H1, H2, o, v, e_abc)
+                   t1, t2, fock, g, H1, H2, 
+                   h_vvvv, h_vvov, h_voov, h_vooo, h_oooo,
+                   o, v, e_abc)
 
         # Update the value of omega
         omega = np.dot(sigma.T, R)
@@ -117,16 +122,23 @@ def update(r1, r2, omega, e_ai, e_abij):
     r2 /= (omega - e_abij)
     return np.hstack([r1.flatten(), r2.flatten()])
 
-def HR(omega, r1, r2, t1, t2, f, g, H1, H2, o, v, e_abc):
+def HR(omega, r1, r2, t1, t2, f, g, H1, H2, h_vvvv, h_vvov, h_voov, h_vooo, h_oooo, o, v, e_abc):
     """Compute the matrix-vector product H * R, where
     H is the CCSDT similarity-transformed Hamiltonian and R is
     the EOMCCSDT linear excitation operator."""
     # compute intermediates
-    h_vvov, h_vooo, x_vvov, x_vooo = compute_eomcc3_intermediates(r1, r2, t1, t2, f, g, o, v)
+    #h_vvov, h_vooo, x_vvov, x_vooo = compute_eomcc3_intermediates(r1, r2, t1, t2, f, g, o, v)
+    x_vvov, x_vooo = compute_eomcc3_intermediates(r1, r2, h_oooo, h_voov, h_vvvv)
     # update R1
     HR1 = build_HR1(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v)
     # update R2
     HR2 = build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v)
+    # Add T3 parts
+    HR2 = add_T3_contributions(HR2, r1, r2, t1, t2, f, H1, H2, h_vvov, h_vooo, e_abc, o, v)
+    # Add R3 parts
+    HR1, HR2 = add_R3_contributions(HR1, HR2, r1, r2, t1, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v)
+    HR2 = antisymmetrize_r2(HR2)
+    # Add T3 parts
     return np.hstack( [HR1.flatten(), HR2.flatten()] )
 
 def build_HR1(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v):
@@ -141,7 +153,39 @@ def build_HR1(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
     X1 -= 0.5 * np.einsum("mnif,afmn->ai", H2[o, o, o, v], r2, optimize=True)
     X1 += 0.5 * np.einsum("anef,efin->ai", H2[v, o, v, v], r2, optimize=True)
     X1 += np.einsum("me,aeim->ai", H1[o, v], r2, optimize=True)
+    return X1
+
+def build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v):
+    """Compute the projection of HR on doubles
+        X[a, b, i, j] = < ijab | [ HBar(CCSDT) * (R1 + R2 + R3) ]_C | 0 >
+    """
+    nu, no = r1.shape
+
+    X2 = -0.5 * np.einsum("mi,abmj->abij", H1[o, o], r2, optimize=True)  # A(ij)
+    X2 += 0.5 * np.einsum("ae,ebij->abij", H1[v, v], r2, optimize=True)  # A(ab)
+    X2 += 0.5 * 0.25 * np.einsum("mnij,abmn->abij", H2[o, o, o, o], r2, optimize=True)
+    X2 += 0.5 * 0.25 * np.einsum("abef,efij->abij", H2[v, v, v, v], r2, optimize=True)
+    X2 += np.einsum("amie,ebmj->abij", H2[v, o, o, v], r2, optimize=True)  # A(ij)A(ab)
+    # T3 is included in here!
+    X2 -= 0.5 * np.einsum("bmji,am->abij", H2[v, o, o, o], r1, optimize=True)  # A(ab)
+    X2 += 0.5 * np.einsum("baje,ei->abij", H2[v, v, o, v], r1, optimize=True)  # A(ij)
+
+    Q1 = -0.5 * np.einsum("mnef,bfmn->eb", H2[o, o, v, v], r2, optimize=True)
+    X2 += 0.5 * np.einsum("eb,aeij->abij", Q1, t2, optimize=True)  # A(ab)
+
+    Q1 = 0.5 * np.einsum("mnef,efjn->mj", H2[o, o, v, v], r2, optimize=True)
+    X2 -= 0.5 * np.einsum("mj,abim->abij", Q1, t2, optimize=True)  # A(ij)
+
+    Q1 = np.einsum("amfe,em->af", H2[v, o, v, v], r1, optimize=True)
+    X2 += 0.5 * np.einsum("af,fbij->abij", Q1, t2, optimize=True)  # A(ab)
+    Q2 = np.einsum("nmie,em->ni", H2[o, o, o, v], r1, optimize=True)
+    X2 -= 0.5 * np.einsum("ni,abnj->abij", Q2, t2, optimize=True)  # A(ij)
+
+    return X2
+
+def add_R3_contributions(X1, X2, r1, r2, t1, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v):
     # Parts contracted with R3
+    nu, no = r1.shape
     for i in range(no):
         for j in range(i + 1, no):
             for k in range(j + 1, no):
@@ -172,64 +216,29 @@ def build_HR1(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
                 X1[:, i] += 0.5 * np.einsum("bc,abc->a", H2[o, o, v, v][j, k, :, :], r3_abc, optimize=True)
                 X1[:, j] -= 0.5 * np.einsum("bc,abc->a", H2[o, o, v, v][i, k, :, :], r3_abc, optimize=True)
                 X1[:, k] -= 0.5 * np.einsum("bc,abc->a", H2[o, o, v, v][j, i, :, :], r3_abc, optimize=True)
-    return X1
+                # Compute diagram: A(ij) [A(k/ij) h(ke) * t3(abeijk)]
+                X2[:, :, i, j] += 0.5 * np.einsum("e,abe->ab", H1[o, v][k, :], r3_abc, optimize=True) # (1)
+                X2[:, :, j, k] += 0.5 * np.einsum("e,abe->ab", H1[o, v][i, :], r3_abc, optimize=True) # (ik)
+                X2[:, :, i, k] -= 0.5 * np.einsum("e,abe->ab", H1[o, v][j, :], r3_abc, optimize=True) # (jk)
+                # Compute diagram: -A(j/ik) h(ik:f) * t3(abfijk)
+                X2[:, :, :, j] -= 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][i, k, :, :], r3_abc, optimize=True) 
+                X2[:, :, :, i] += 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][j, k, :, :], r3_abc, optimize=True) 
+                X2[:, :, :, k] += 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][i, j, :, :], r3_abc, optimize=True) 
+                # Compute diagram: 1/2 A(k/ij) h(akef) * t3(ebfijk) 
+                X2[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, k, :, :], r3_abc, optimize=True) 
+                X2[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, i, :, :], r3_abc, optimize=True) 
+                X2[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, j, :, :], r3_abc, optimize=True)
+    return X1, X2
 
-def build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_abc, o, v):
-    """Compute the projection of HR on doubles
-        X[a, b, i, j] = < ijab | [ HBar(CCSDT) * (R1 + R2 + R3) ]_C | 0 >
-    """
-    nu, no = r1.shape
-
-    X2 = -0.5 * np.einsum("mi,abmj->abij", H1[o, o], r2, optimize=True)  # A(ij)
-    X2 += 0.5 * np.einsum("ae,ebij->abij", H1[v, v], r2, optimize=True)  # A(ab)
-    X2 += 0.5 * 0.25 * np.einsum("mnij,abmn->abij", H2[o, o, o, o], r2, optimize=True)
-    X2 += 0.5 * 0.25 * np.einsum("abef,efij->abij", H2[v, v, v, v], r2, optimize=True)
-    X2 += np.einsum("amie,ebmj->abij", H2[v, o, o, v], r2, optimize=True)  # A(ij)A(ab)
-    # T3 is included in here!
-    X2 -= 0.5 * np.einsum("bmji,am->abij", H2[v, o, o, o], r1, optimize=True)  # A(ab)
-    X2 += 0.5 * np.einsum("baje,ei->abij", H2[v, v, o, v], r1, optimize=True)  # A(ij)
-
-    Q1 = -0.5 * np.einsum("mnef,bfmn->eb", H2[o, o, v, v], r2, optimize=True)
-    X2 += 0.5 * np.einsum("eb,aeij->abij", Q1, t2, optimize=True)  # A(ab)
-
-    Q1 = 0.5 * np.einsum("mnef,efjn->mj", H2[o, o, v, v], r2, optimize=True)
-    X2 -= 0.5 * np.einsum("mj,abim->abij", Q1, t2, optimize=True)  # A(ij)
-
-    Q1 = np.einsum("amfe,em->af", H2[v, o, v, v], r1, optimize=True)
-    X2 += 0.5 * np.einsum("af,fbij->abij", Q1, t2, optimize=True)  # A(ab)
-    Q2 = np.einsum("nmie,em->ni", H2[o, o, o, v], r1, optimize=True)
-    X2 -= 0.5 * np.einsum("ni,abnj->abij", Q2, t2, optimize=True)  # A(ij)
-
+def add_T3_contributions(X2, r1, r2, t1, t2, f, H1, H2, h_vvov, h_vooo, e_abc, o, v):
     I_ov = np.einsum("mnef,fn->me", H2[o, o, v, v], r1, optimize=True)
     # Parts contracted with T3/R3
+    nu, no = r1.shape
     for i in range(no):
         for j in range(i + 1, no):
             for k in range(j + 1, no):
                 # fock denominator for occupied
                 denom_occ = f[o, o][i, i] + f[o, o][j, j] + f[o, o][k, k]
-                #### Compute R3 ####
-                # -1/2 A(k/ij)A(abc) X(amij) * t(bcmk)
-                r3_abc = -0.5 * np.einsum("am,bcm->abc", x_vooo[:, :, i, j], t2[:, :, :, k], optimize=True)
-                r3_abc += 0.5 * np.einsum("am,bcm->abc", x_vooo[:, :, k, j], t2[:, :, :, i], optimize=True)
-                r3_abc += 0.5 * np.einsum("am,bcm->abc", x_vooo[:, :, i, k], t2[:, :, :, j], optimize=True)
-                #
-                r3_abc -= 0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, i, j], r2[:, :, :, k], optimize=True)
-                r3_abc += 0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, k, j], r2[:, :, :, i], optimize=True)
-                r3_abc += 0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, i, k], r2[:, :, :, j], optimize=True)
-                # 1/2 A(i/jk)A(abc) X(abie) * t(ecjk)
-                r3_abc += 0.5 * np.einsum("abe,ec->abc", x_vvov[:, :, i, :], t2[:, :, j, k], optimize=True)
-                r3_abc -= 0.5 * np.einsum("abe,ec->abc", x_vvov[:, :, j, :], t2[:, :, i, k], optimize=True)
-                r3_abc -= 0.5 * np.einsum("abe,ec->abc", x_vvov[:, :, k, :], t2[:, :, j, i], optimize=True)
-                #
-                r3_abc += 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, i, :], r2[:, :, j, k], optimize=True)
-                r3_abc -= 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, j, :], r2[:, :, i, k], optimize=True)
-                r3_abc -= 0.5 * np.einsum("abe,ec->abc", h_vvov[:, :, k, :], r2[:, :, j, i], optimize=True)
-                # Antisymmetrize A(abc)
-                r3_abc -= np.transpose(r3_abc, (1, 0, 2)) + np.transpose(r3_abc, (2, 1, 0)) # A(a/bc)
-                r3_abc -= np.transpose(r3_abc, (0, 2, 1)) # A(bc)
-                # Divide t_abc by the denominator
-                r3_abc /= (omega + denom_occ + e_abc)
-
                 #### Compute T3 ####
                 # -1/2 A(k/ij)A(abc) X(amij) * t(bcmk)
                 t3_abc = -0.5 * np.einsum("am,bcm->abc", h_vooo[:, :, i, j], t2[:, :, :, k], optimize=True)
@@ -244,24 +253,14 @@ def build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
                 t3_abc -= np.transpose(t3_abc, (0, 2, 1)) # A(bc)
                 # Divide t_abc by the denominator
                 t3_abc /= (denom_occ + e_abc)
-
                 # Compute diagram: A(ij) [A(k/ij) h(ke) * t3(abeijk)]
                 X2[:, :, i, j] += 0.5 * np.einsum("e,abe->ab", I_ov[k, :], t3_abc, optimize=True) # (1)
                 X2[:, :, j, k] += 0.5 * np.einsum("e,abe->ab", I_ov[i, :], t3_abc, optimize=True) # (ik)
                 X2[:, :, i, k] -= 0.5 * np.einsum("e,abe->ab", I_ov[j, :], t3_abc, optimize=True) # (jk)
-                # Compute diagram: A(ij) [A(k/ij) h(ke) * t3(abeijk)]
-                X2[:, :, i, j] += 0.5 * np.einsum("e,abe->ab", H1[o, v][k, :], r3_abc, optimize=True) # (1)
-                X2[:, :, j, k] += 0.5 * np.einsum("e,abe->ab", H1[o, v][i, :], r3_abc, optimize=True) # (ik)
-                X2[:, :, i, k] -= 0.5 * np.einsum("e,abe->ab", H1[o, v][j, :], r3_abc, optimize=True) # (jk)
-                # Compute diagram: -A(j/ik) h(ik:f) * t3(abfijk)
-                X2[:, :, :, j] -= 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][i, k, :, :], r3_abc, optimize=True) 
-                X2[:, :, :, i] += 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][j, k, :, :], r3_abc, optimize=True) 
-                X2[:, :, :, k] += 0.5 * np.einsum("mf,abf->abm", H2[o, o, o, v][i, j, :, :], r3_abc, optimize=True) 
-                # Compute diagram: 1/2 A(k/ij) h(akef) * t3(ebfijk) 
-                X2[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, k, :, :], r3_abc, optimize=True) 
-                X2[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, i, :, :], r3_abc, optimize=True) 
-                X2[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", H2[v, o, v, v][:, j, :, :], r3_abc, optimize=True) 
+    return X2
 
+def antisymmetrize_r2(X2):
+    nu, _, no, _ = X2.shape
     # Antisymmetrize
     X2 -= np.transpose(X2, (0, 1, 3, 2))
     X2 -= np.transpose(X2, (1, 0, 2, 3))
@@ -271,4 +270,3 @@ def build_HR2(r1, r2, t2, omega, f, H1, H2, h_vvov, h_vooo, x_vvov, x_vooo, e_ab
     for i in range(no):
         X2[:, :, i, i] *= 0.0
     return X2
-

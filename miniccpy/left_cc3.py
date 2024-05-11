@@ -3,18 +3,18 @@ import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
 from miniccpy.utilities import get_memory_usage
-from miniccpy.helper_cc3 import compute_leftcc3_intermediates, get_lr_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lr_intermediates
 
 def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
         X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
     """
+    # < 0 | (L1 + L2) * H(2) | ia >
     LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
     LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
     LH += np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
     LH += 0.5 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
     LH -= 0.5 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
-
     I1 = 0.25 * np.einsum("efmn,fgnm->ge", l2, t2, optimize=True)
     I2 = -0.25 * np.einsum("efmn,egnm->gf", l2, t2, optimize=True)
     I3 = -0.25 * np.einsum("efmo,efno->mn", l2, t2, optimize=True)
@@ -23,13 +23,14 @@ def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     LH += np.einsum("gf,figa->ai", I2, H2[v, o, v, v], optimize=True)
     LH += np.einsum("mn,nima->ai", I3, H2[o, o, o, v], optimize=True)
     LH += np.einsum("on,nioa->ai", I4, H2[o, o, o, v], optimize=True)
-
-    # < 0 | L2 * (H(2) * T3)_C | ia >
+    # < 0 | L2 * (H(1) * T3)_C | ia > 
     LH += np.einsum("em,imae->ai", X1["vo"], H2[o, o, v, v], optimize=True)
+    # < 0 | L3 * (H(1) * T2)_C | ia >
     LH += 0.5 * np.einsum("nmoa,iomn->ai", X2["ooov"], h_oooo, optimize=True)
     LH += np.einsum("fmae,eimf->ai", X2["vovv"], h_voov, optimize=True)
     LH -= 0.5 * np.einsum("gife,efag->ai", X2["vovv"], h_vvvv, optimize=True)
     LH -= np.einsum("imne,enma->ai", X2["ooov"], h_voov, optimize=True)
+    # < 0 | H(1) | ia >
     LH += H1[o, v].transpose(1, 0)
     return LH
 
@@ -37,6 +38,7 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
+    # < 0 | (L1 + L2) * H(2) | ia >
     LH = 0.5 * np.einsum("ea,ebij->abij", H1[v, v], l2, optimize=True)
     LH -= 0.5 * np.einsum("im,abmj->abij", H1[o, o], l2, optimize=True)
     LH += np.einsum("jb,ai->abij", H1[o, v], l1, optimize=True)
@@ -53,10 +55,7 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v):
     LH += 0.125 * np.einsum("efab,efij->abij", H2[v, v, v, v], l2, optimize=True)
     LH += 0.5 * np.einsum("ejab,ei->abij", H2[v, o, v, v], l1, optimize=True)
     LH -= 0.5 * np.einsum("ijmb,am->abij", H2[o, o, o, v], l1, optimize=True)
-
-    # Moment-like terms
-    #LH += 0.25 * np.einsum("ebfijn,fena->abij", l3, h_vvov, optimize=True) # 1
-    #LH -= 0.25 * np.einsum("abfmjn,finm->abij", l3, h_vooo, optimize=True) # 3
+    # < 0 | (L3 * H(1))_C | ijab >
     nu, no = l1.shape
     for i in range(no):
         for j in range(i + 1, no):
@@ -97,8 +96,9 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v):
                 LH[:, :, :, j] -= 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, k, i], optimize=True)
                 LH[:, :, :, i] += 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, k, j], optimize=True)
                 LH[:, :, :, k] += 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, j, i], optimize=True)
-
+    # < 0 | H(2) | ijab >
     LH += 0.25 * H2[o, o, v, v].transpose(2, 3, 0, 1)
+    # Antisymmetrize
     LH -= np.transpose(LH, (1, 0, 2, 3))
     LH -= np.transpose(LH, (0, 1, 3, 2))
     # Manually clear all diagonal elements
@@ -109,8 +109,10 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v):
     return LH
 
 def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core):
-    """Solve the CCSDT system of nonlinear equations using Jacobi iterations
-    with DIIS acceleration. The initial values of the T amplitudes are taken to be 0."""
+    """
+    Solve the left-CC3 system of nonlinear equations using Jacobi iterations
+    with DIIS acceleration. The initial values of the T amplitudes are taken to be 0.
+    """
 
     omega = 0.0
     eps = np.diagonal(fock)
@@ -126,17 +128,16 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
 
     diis_engine = DIIS(ndim, diis_size, out_of_core)
 
-    # unpack T vector
+    # unpack T vector and allocate L and LH vectors
     t1, t2 = T
     l1 = t1.copy()
     l2 = t2.copy()
     lh1 = np.zeros((nunocc, nocc))
     lh2 = np.zeros((nunocc, nunocc, nocc, nocc))
-
+    # Starting energy
     old_energy = lcc_energy(l1, l2, lh1, lh2) + omega
     # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
-
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_ccs_intermediates(t1, t2, fock, g, o, v)
     print("    ==> Left-CC3 amplitude equations <==")
     print("")
     print("     Iter               Energy                 |dE|                 |dL|     Wall Time     Memory")
@@ -163,7 +164,9 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
 
         if idx >= n_start_diis:
             diis_engine.push((l1, l2), (lh1, lh2), idx)
-        if idx >= diis_size + n_start_diis:
+        #if idx >= diis_size + n_start_diis:
+        # Extrapolation every DIIS seems to work better than constant extrapolation
+        if idx % diis_size == 0 and idx > 0:
             L_extrap = diis_engine.extrapolate()
             l1 = L_extrap[:n1].reshape((nunocc, nocc))
             l2 = L_extrap[n1:].reshape((nunocc, nunocc, nocc, nocc))

@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from miniccpy.utilities import get_memory_usage
-from miniccpy.helper_cc3 import compute_leftcc3_intermediates, get_lr_intermediates, compute_eomcc3_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lr_intermediates, compute_eomcc3_intermediates
 
 def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
     """
@@ -36,7 +36,7 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         diis_engine = DIIS(ndim, diis_size, out_of_core)
 
     # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_ccs_intermediates(t1, t2, fock, g, o, v)
 
     print("    ==> Left-EOM-CC3 iterations <==")
     print("    The initial guess energy = ", omega)
@@ -99,13 +99,15 @@ def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, di
         diis_engine.cleanup()
 
     # Normalize <L|R> = 1
-    LR = calc_LR(L, R, t1, t2, fock, g, H1, H2, omega, e_abc, nocc, nunocc, o, v)
+    LR = calc_LR(L, R, t1, t2, fock, g, H1, H2, 
+                 h_vvvv, h_vvov, h_voov, h_vooo, h_oooo,
+                 omega, e_abc, nocc, nunocc, o, v)
     L /= LR
     # Save the final converged root in an excitation tuple
     L = (L[:n1].reshape(nunocc, nocc), L[n1:].reshape(nunocc, nunocc, nocc, nocc))
     return L, omega
 
-def calc_LR(L, R, t1, t2, f, g, H1, H2, omega, e_abc, nocc, nunocc, o, v):
+def calc_LR(L, R, t1, t2, f, g, H1, H2, h_vvvv, h_vvov, h_voov, h_vooo, h_oooo, omega, e_abc, nocc, nunocc, o, v):
     n1 = nocc*nunocc
     n2 = nocc**2 * nunocc**2
     # unpack L
@@ -117,7 +119,7 @@ def calc_LR(L, R, t1, t2, f, g, H1, H2, omega, e_abc, nocc, nunocc, o, v):
     LR = np.einsum("ai,ai->", l1, r1, optimize=True)
     LR += 0.25 * np.einsum("abij,abij->", l2, r2, optimize=True)
     # compute intermediates
-    h_vvov, h_vooo, x_vvov, x_vooo = compute_eomcc3_intermediates(r1, r2, t1, t2, f, g, o, v)
+    x_vvov, x_vooo = compute_eomcc3_intermediates(r1, r2, h_oooo, h_voov, h_vvvv)
     for i in range(nocc):
         for j in range(i + 1, nocc):
             for k in range(j + 1, nocc):
@@ -145,7 +147,6 @@ def calc_LR(L, R, t1, t2, f, g, H1, H2, omega, e_abc, nocc, nunocc, o, v):
                 r3_abc -= np.transpose(r3_abc, (0, 2, 1)) # A(bc)
                 # Divide t_abc by the denominator
                 r3_abc /= (omega + denom_occ + e_abc)
-
                 ### Compute L3(abc) ###
                 l3_abc = 0.5 * (
                         np.einsum("eba,ec->abc", H2[v, o, v, v][:, i, :, :], l2[:, :, j, k], optimize=True)
@@ -172,6 +173,7 @@ def calc_LR(L, R, t1, t2, f, g, H1, H2, omega, e_abc, nocc, nunocc, o, v):
                 l3_abc -= np.transpose(l3_abc, (0, 2, 1)) # (bc)
                 # Divide l_abc by the denominator
                 l3_abc /= (omega + denom_occ + e_abc)
+                # Multiply and sum L3(abc) * T3(abc)
                 LR += (1.0 / 6.0) * np.einsum("abc,abc->", r3_abc, l3_abc, optimize=True)
     return LR
 
@@ -196,12 +198,12 @@ def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
         X[a, i] = < 0 | (1 + L1 + L2)*(H_N exp(T1+T2))_C | 0 >
     """
+    # < 0 | (L1 + L2) * H(2) | ia >
     LH = np.einsum("ea,ei->ai", H1[v, v], l1, optimize=True)
     LH -= np.einsum("im,am->ai", H1[o, o], l1, optimize=True)
     LH += np.einsum("eima,em->ai", H2[v, o, o, v], l1, optimize=True)
     LH += 0.5 * np.einsum("fena,efin->ai", H2[v, v, o, v], l2, optimize=True)
     LH -= 0.5 * np.einsum("finm,afmn->ai", H2[v, o, o, o], l2, optimize=True)
-
     I1 = 0.25 * np.einsum("efmn,fgnm->ge", l2, t2, optimize=True)
     I2 = -0.25 * np.einsum("efmn,egnm->gf", l2, t2, optimize=True)
     I3 = -0.25 * np.einsum("efmo,efno->mn", l2, t2, optimize=True)
@@ -210,9 +212,9 @@ def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     LH += np.einsum("gf,figa->ai", I2, H2[v, o, v, v], optimize=True)
     LH += np.einsum("mn,nima->ai", I3, H2[o, o, o, v], optimize=True)
     LH += np.einsum("on,nioa->ai", I4, H2[o, o, o, v], optimize=True)
-
-    # < 0 | L2 * (H(2) * T3)_C | ia >
+    # < 0 | L2 * (H(1) * T3)_C | ia > 
     LH += np.einsum("em,imae->ai", X1["vo"], H2[o, o, v, v], optimize=True)
+    # < 0 | L3 * (H(1) * T2)_C | ia >
     LH += 0.5 * np.einsum("nmoa,iomn->ai", X2["ooov"], h_oooo, optimize=True)
     LH += np.einsum("fmae,eimf->ai", X2["vovv"], h_voov, optimize=True)
     LH -= 0.5 * np.einsum("gife,efag->ai", X2["vovv"], h_vvvv, optimize=True)
@@ -223,6 +225,7 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, omega, e_abc, 
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
+    # < 0 | (L1 + L2) * H(2) | ia >
     LH = 0.5 * np.einsum("ea,ebij->abij", H1[v, v], l2, optimize=True)
     LH -= 0.5 * np.einsum("im,abmj->abij", H1[o, o], l2, optimize=True)
     LH += np.einsum("jb,ai->abij", H1[o, v], l1, optimize=True)
@@ -239,8 +242,7 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, omega, e_abc, 
     LH += 0.125 * np.einsum("efab,efij->abij", H2[v, v, v, v], l2, optimize=True)
     LH += 0.5 * np.einsum("ejab,ei->abij", H2[v, o, v, v], l1, optimize=True)
     LH -= 0.5 * np.einsum("ijmb,am->abij", H2[o, o, o, v], l1, optimize=True)
-
-    # Moment-like terms
+    # < 0 | (L3 * H(1))_C | ijab >
     nu, no = l1.shape
     for i in range(no):
         for j in range(i + 1, no):
@@ -280,7 +282,7 @@ def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, omega, e_abc, 
                 LH[:, :, :, j] -= 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, k, i], optimize=True)
                 LH[:, :, :, i] += 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, k, j], optimize=True)
                 LH[:, :, :, k] += 0.5 * np.einsum("abf,fi->abi", l3_abc, h_vooo[:, :, j, i], optimize=True)
-
+    # Antisymmetrize
     LH -= np.transpose(LH, (1, 0, 2, 3))
     LH -= np.transpose(LH, (0, 1, 3, 2))
     # Manually clear all diagonal elements

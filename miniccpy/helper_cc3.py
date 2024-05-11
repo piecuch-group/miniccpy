@@ -170,7 +170,20 @@ def compute_cc3_intermediates(f, g, t1, t2, o, v):
 
     return I_vooo, I_vvov
 
-def compute_eomcc3_intermediates(r1, r2, t1, t2, f, g, o, v):
+def compute_eomcc3_intermediates(r1, r2, h_oooo, h_voov, h_vvvv):
+    X_vooo = (
+                np.einsum("amie,ej->amij", h_voov, r1, optimize=True)
+               -0.5 * np.einsum("mnji,an->amij", h_oooo, r1, optimize=True)
+    )
+    X_vooo -= np.transpose(X_vooo, (0, 1, 3, 2))
+    X_vvov = (
+                -np.einsum("amie,bm->abie", h_voov, r1, optimize=True)
+                +0.5 * np.einsum("abfe,fi->abie", h_vvvv, r1, optimize=True)
+    )
+    X_vvov -= np.transpose(X_vvov, (1, 0, 2, 3))
+    return X_vvov, X_vooo
+
+def compute_eomcc3_intermediates_bak(r1, r2, t1, t2, f, g, o, v):
     # CCS Hbar elements
     h_voov = g[v, o, o, v] + (
             -np.einsum("nmie,an->amie", g[o, o, o, v], t1, optimize=True)
@@ -218,7 +231,7 @@ def compute_eomcc3_intermediates(r1, r2, t1, t2, f, g, o, v):
     X_vvov -= np.transpose(X_vvov, (1, 0, 2, 3))
     return h_vvov, h_vooo, X_vvov, X_vooo
 
-def compute_leftcc3_intermediates(t1, t2, f, g, o, v):
+def compute_ccs_intermediates(t1, t2, f, g, o, v):
     # CCS Hbar elements
     h_voov = g[v, o, o, v] + (
             -np.einsum("nmie,an->amie", g[o, o, o, v], t1, optimize=True)
