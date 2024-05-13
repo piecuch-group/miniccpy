@@ -2,7 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
-from miniccpy.helper_cc3 import compute_leftcc3_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates
 
 def get_lr_intermediates(l1, l2, l3, t2, f, H1, H2, h_vvov, h_vooo, e_abc, o, v):
     nu, _, no, _ = t2.shape
@@ -247,7 +247,7 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
         tic = time.time()
 
         # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-        h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, fock, g, o, v)
+        h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_ccs_intermediates(t1, t2, fock, g, o, v)
         # comptute L*T intermediates
         X1, X2 = get_lr_intermediates(l1, l2, l3, t2, fock, H1, H2, h_vvov, h_vooo, e_abc, o, v)
         lh1 = LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v)
