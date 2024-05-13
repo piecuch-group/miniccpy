@@ -42,7 +42,6 @@ def clean_up(fid, n):
 
 def remove_file(filePath):
     import os
-
     try:
         os.remove(filePath)
     except OSError:

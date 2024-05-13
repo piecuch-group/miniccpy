@@ -1,6 +1,7 @@
 import time
 import numpy as np
-from miniccpy.utilities import get_memory_usage
+import h5py
+from miniccpy.utilities import get_memory_usage, remove_file
 from miniccpy.lib import dipeom4_p
 
 # IMPORTANT NOTE:
@@ -8,13 +9,17 @@ from miniccpy.lib import dipeom4_p
 # update and r3_amps/HR3 and r3_excitations will be out of alignment. This behavior
 # can be checked using the tmp variables.
 
-def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
+def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial
     guess vector.
     """
     from miniccpy.energy import calc_rel_dip
+
+    remove_file("eomcc-vectors.hdf5")
+    if out_of_core:
+        f = h5py.File("eomcc-vectors.hdf5", "w")
 
     # determine whether r3 updates should be done
     do_r3 = True
@@ -34,8 +39,13 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
         R[:len(R0)] = R0
 
     # Allocate the B and sigma matrices
-    sigma = np.zeros((max_size, ndim))
-    B = np.zeros((max_size, ndim))
+    if out_of_core:
+        sigma = f.create_dataset("sigma", (max_size, ndim), dtype=np.float64)
+        B = f.create_dataset("bmatrix", (max_size, ndim), dtype=np.float64)
+    else:
+        sigma = np.zeros((max_size, ndim))
+        B = np.zeros((max_size, ndim))
+
     restart_block = np.zeros((ndim, nrest))
     G = np.zeros((max_size, max_size))
 
@@ -126,6 +136,8 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     r0 = 0.0
     # Compute relative excitation level diagnostic
     rel = calc_rel_dip(R[0], R[1])
+    # remove the HDF5 file
+    remove_file("eomcc-vectors.hdf5")
     return R, omega, r0, rel
 
 def update(r1, r2, r3, r3_excitations, omega, h1_oo, h1_vv):

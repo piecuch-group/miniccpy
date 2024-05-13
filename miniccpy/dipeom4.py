@@ -1,14 +1,19 @@
 import time
 import numpy as np
-from miniccpy.utilities import get_memory_usage
+import h5py
+from miniccpy.utilities import get_memory_usage, remove_file
 
-def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
+def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial
     guess vector.
     """
     from miniccpy.energy import calc_rel_dip
+
+    remove_file("eomcc-vectors.hdf5")
+    if out_of_core:
+        f = h5py.File("eomcc-vectors.hdf5", "w")
 
     eps = np.diagonal(H1)
     n = np.newaxis
@@ -29,13 +34,18 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
         R[:len(R0)] = R0
 
     # Allocate the B and sigma matrices
-    sigma = np.zeros((ndim, max_size))
-    B = np.zeros((ndim, max_size))
+    if out_of_core:
+        sigma = f.create_dataset("sigma", (max_size, ndim), dtype=np.float64)
+        B = f.create_dataset("bmatrix", (max_size, ndim), dtype=np.float64)
+    else:
+        sigma = np.zeros((max_size, ndim))
+        B = np.zeros((max_size, ndim))
     restart_block = np.zeros((ndim, nrest))
+    G = np.zeros((max_size, max_size))
 
     # Initial values
-    B[:, 0] = R
-    sigma[:, 0] = HR(R[:n1].reshape(nocc, nocc),
+    B[0, :] = R
+    sigma[0, :] = HR(R[:n1].reshape(nocc, nocc),
                      R[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                      R[n1+n2:].reshape(nocc, nocc, nunocc, nunocc, nocc, nocc),
                      t1, t2, H1, H2, o, v)
@@ -50,20 +60,23 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
         omega_old = omega
 
         # solve projection subspace eigenproblem
-        G = np.dot(B[:, :curr_size].T, sigma[:, :curr_size])
-        e, alpha = np.linalg.eig(G)
+        G[curr_size - 1, :curr_size] = np.einsum("k,pk->p", B[curr_size - 1, :], sigma[:curr_size, :])
+        G[:curr_size, curr_size - 1] = np.einsum("k,pk->p", sigma[curr_size - 1, :], B[:curr_size, :])
+        e, alpha_full = np.linalg.eig(G[:curr_size, :curr_size])
 
         # select root based on maximum overlap with initial guess
-        idx = np.argsort(abs(alpha[0, :]))
-        alpha = np.real(alpha[:, idx[-1]])
+        idx = np.argsort(abs(alpha_full[0, :]))
+        iselect = idx[-1]
+
+        alpha = np.real(alpha_full[:, iselect])
 
         # Get the eigenpair of interest
-        omega = np.real(e[idx[-1]])
-        R = np.dot(B[:, :curr_size], alpha)
+        omega = np.real(e[iselect])
+        R = np.dot(B[:curr_size, :].T, alpha)
         restart_block[:, niter % nrest] = R
 
         # calculate residual vector
-        residual = np.dot(sigma[:, :curr_size], alpha) - omega * R
+        residual = np.dot(sigma[:curr_size, :].T, alpha) - omega * R
         res_norm = np.linalg.norm(residual)
         delta_e = omega - omega_old
 
@@ -82,14 +95,14 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
                    e_ijck,
                    e_ijcdkl)
         for p in range(curr_size):
-            b = B[:, p] / np.linalg.norm(B[:, p])
+            b = B[p, :] / np.linalg.norm(B[p, :])
             q -= np.dot(b.T, q) * b
         q *= 1.0 / np.linalg.norm(q)
 
         # If below maximum subspace size, expand the subspace
         if curr_size < max_size:
-            B[:, curr_size] = q
-            sigma[:, curr_size] = HR(q[:n1].reshape(nocc, nocc),
+            B[curr_size, :] = q
+            sigma[curr_size, :] = HR(q[:n1].reshape(nocc, nocc),
                                      q[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                                      q[n1+n2:].reshape(nocc, nocc, nunocc, nunocc, nocc, nocc),
                                      t1, t2, H1, H2, o, v)
@@ -98,8 +111,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
             print("       **Deflating subspace**")
             restart_block, _ = np.linalg.qr(restart_block)
             for j in range(restart_block.shape[1]):
-                B[:, j] = restart_block[:, j]
-                sigma[:, j] = HR(restart_block[:n1, j].reshape(nocc, nocc),
+                B[j, :] = restart_block[:, j]
+                sigma[j, :] = HR(restart_block[:n1, j].reshape(nocc, nocc),
                                  restart_block[n1:n1+n2, j].reshape(nocc, nocc, nunocc, nocc),
                                  restart_block[n1+n2:, j].reshape(nocc, nocc, nunocc, nunocc, nocc, nocc),
                                  t1, t2, H1, H2, o, v)
@@ -119,6 +132,8 @@ def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=2
     r0 = 0.0
     # Compute relative excitation level diagnostic
     rel = calc_rel_dip(R[0], R[1])
+    # remove the HDF5 file
+    remove_file("eomcc-vectors.hdf5")
     return R, omega, r0, rel
 
 def update(r1, r2, r3, omega, e_ij, e_ijck, e_ijcdkl):

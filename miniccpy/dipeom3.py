@@ -1,8 +1,9 @@
 import time
 import numpy as np
-from miniccpy.utilities import get_memory_usage
+import h5py
+from miniccpy.utilities import get_memory_usage, remove_file
 
-def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
+def kernel(R0, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial

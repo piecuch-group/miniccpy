@@ -22,8 +22,8 @@ omega = np.zeros(2)
 # Set up the list of 4h2p excitations corresponding to the active-space DIP-EOMCCSD(4h-2p){No} method
 no, nu = fock[o, v].shape
 
-r3_excitations = get_active_4h2p_pspace(no, nu, nacto=4)
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0, 3], r3_excitations=r3_excitations)
+r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10)
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0, 3], r3_excitations=r3_excitations, out_of_core=True)
 
 #
 # Check the results

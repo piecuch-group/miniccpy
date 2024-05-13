@@ -3,7 +3,7 @@ import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
 from miniccpy.utilities import get_memory_usage
-from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lr_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lt_intermediates
 
 def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     """Compute the projection of the CCSD Hamiltonian on singles
@@ -34,7 +34,7 @@ def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     LH += H1[o, v].transpose(1, 0)
     return LH
 
-def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v):
+def LH_doubles(l1, l2, t1, t2, f, H1, H2, h_vvov, h_vooo, e_abc, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """
@@ -146,9 +146,9 @@ def kernel(T, fock, g, H1, H2, o, v, maxit, convergence, energy_shift, diis_size
         tic = time.time()
 
         # comptute L*T intermediates
-        X1, X2 = get_lr_intermediates(l1, l2, t2, fock, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
+        X1, X2 = get_lt_intermediates(l1, l2, t2, fock, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
         lh1 = LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v)
-        lh2 = LH_doubles(l1, l2, t1, t2, fock, H1, H2, X1, X2, h_vvov, h_vooo, e_abc, o, v)
+        lh2 = LH_doubles(l1, l2, t1, t2, fock, H1, H2, h_vvov, h_vooo, e_abc, o, v)
 
         lh1 = (omega * l1 - lh1) * e_ai
         lh2 = (omega * l2 - lh2) * e_abij

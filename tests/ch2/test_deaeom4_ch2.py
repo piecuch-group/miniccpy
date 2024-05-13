@@ -15,7 +15,7 @@ H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 R, omega_guess = run_guess(H1, H2, o, v, 10, method="deacis", mult=-1, nactu=10)
 
 state_index = [0, 1, 4, 5, 6]
-R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="deaeom4", state_index=state_index, convergence=1.0e-08, maxit=100)
+R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="deaeom4", state_index=state_index, convergence=1.0e-08, maxit=100, out_of_core=True)
 
 expected_vee = [-1.2063288624, -1.2280321410, -1.1434807780, -1.0428117510, -0.9119057911]
 

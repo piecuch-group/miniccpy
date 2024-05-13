@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from miniccpy.utilities import get_memory_usage
-from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lr_intermediates, compute_eomcc3_intermediates
+from miniccpy.helper_cc3 import compute_ccs_intermediates, get_lt_intermediates, compute_eomcc3_intermediates
 
 def kernel(R, T, omega, fock, g, H1, H2, o, v, maxit=80, convergence=1.0e-07, diis_size=6, do_diis=True):
     """
@@ -189,9 +189,9 @@ def LH(omega, l1, l2, t1, t2, f, g, H1, H2, h_vvov, h_vooo, h_voov, h_vvvv, h_oo
     H is the CCSDT similarity-transformed Hamiltonian and L is
     the EOMCCSDT linear de-excitation operator."""
     # comptute L*T intermediates
-    X1, X2 = get_lr_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
+    X1, X2 = get_lt_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
     LH1 = LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v)
-    LH2 = LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, omega, e_abc, o, v)
+    LH2 = LH_doubles(l1, l2, t1, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v)
     return np.hstack( [LH1.flatten(), LH2.flatten()] )
 
 def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
@@ -221,7 +221,7 @@ def LH_singles(l1, l2, t1, t2, H1, H2, X1, X2, h_voov, h_vvvv, h_oooo, o, v):
     LH -= np.einsum("imne,enma->ai", X2["ooov"], h_voov, optimize=True)
     return LH
 
-def LH_doubles(l1, l2, t1, t2, f, H1, H2, X1, X2, h_vvov, h_vooo, omega, e_abc, o, v):
+def LH_doubles(l1, l2, t1, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v):
     """Compute the projection of the CCSD Hamiltonian on doubles
         X[a, b, i, j] = < ijab | (H_N exp(T1+T2))_C | 0 >
     """

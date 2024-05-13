@@ -268,7 +268,7 @@ def compute_ccs_intermediates(t1, t2, f, g, o, v):
     h_vvov -= np.transpose(h_vvov, (1, 0, 2, 3))
     return h_vvov, h_vooo, h_voov, h_vvvv, h_oooo
 
-def get_lr_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v):
+def get_lt_intermediates(l1, l2, t2, f, H1, H2, h_vvov, h_vooo, omega, e_abc, o, v):
     nu, _, no, _ = t2.shape
     X1 = {"vo": []}
     X2 = {"ooov": [], "vovv": []}
