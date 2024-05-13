@@ -34,7 +34,7 @@ def test_cc3_h2o():
 
     L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_cc3", g=g)
 
-    R, omega_guess = run_guess(H1, H2, o, v, 5, method="cisd", mult=1, nacto=5, nactu=5)
+    R, omega_guess = run_guess(H1, H2, o, v, 5, method="cis", mult=1)
     R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="eomcc3", state_index=[0], fock=fock, g=g)
     L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method="left_eomcc3", fock=fock, g=g)
 
