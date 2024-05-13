@@ -1,8 +1,7 @@
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
-from miniccpy.pspace import get_active_4h2p_pspace
 
-def test_dipeom4a_ch2():
+def test_dipeom4_ch2():
 
     basis = '6-31g'
     nfrozen = 0
@@ -18,14 +17,7 @@ def test_dipeom4a_ch2():
 
     nroot = 4
     R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
-
-    omega = np.zeros(2)
-
-    # Set up the list of 4h2p excitations corresponding to the active-space DIP-EOMCCSD(4h-2p){No} method
-    no, nu = fock[o, v].shape
-
-    r3_excitations = get_active_4h2p_pspace(no, nu, nacto=10)
-    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p", state_index=[0, 3], r3_excitations=r3_excitations, out_of_core=True)
+    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4", state_index=[0, 3], out_of_core=True)
 
     #
     # Check the results
@@ -35,4 +27,4 @@ def test_dipeom4a_ch2():
         assert np.allclose(omega[i], vee, atol=1.0e-06)
 
 if __name__ == "__main__":
-    test_dipeom4a_ch2()
+    test_dipeom4_ch2()
