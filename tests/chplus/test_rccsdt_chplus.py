@@ -10,5 +10,10 @@ def test_rccsdt_chplus():
 
     T, E_corr = run_cc_calc(fock, g, o, v, method='rccsdt')
 
+    #
+    # Check the results
+    #
+    assert np.allclose(-0.116747445381, E_corr, atol=1.0e-08)
+
 if __name__ == "__main__":
     test_rccsdt_chplus()

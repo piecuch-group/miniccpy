@@ -14,5 +14,10 @@ def test_ccsd_ch2():
 
     T, E_corr = run_cc_calc(fock, g, o, v, method="ccsd")
 
+    #
+    # Check the results
+    #
+    assert np.allclose(E_corr, -0.088961546763, atol=1.0e-07)
+
 if __name__ == "__main__":
     test_ccsd_ch2()

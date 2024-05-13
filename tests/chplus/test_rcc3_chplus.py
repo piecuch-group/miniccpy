@@ -10,6 +10,9 @@ def test_rcc3_chplus():
 
     T, E_corr = run_cc_calc(fock, g, o, v, method='rcc3')
 
+    #
+    # Check the results
+    #
     assert np.allclose(-0.116362571924, E_corr, atol=1.0e-08)
 
 if __name__ == "__main__":

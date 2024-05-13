@@ -13,7 +13,15 @@ def test_eaeom3_chplus():
 
     R, omega_guess = run_guess(H1, H2, o, v, 20, method="eacis")
     R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method='eaeom3', state_index=[0, 4])
-    L, omega_left = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method='left_eaeom3')
+    L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method='left_eaeom3')
+
+    #
+    # Check the results
+    #
+    assert np.allclose(Ecorr, -0.114901980505, atol=1.0e-07)
+
+    assert np.allclose(omega[0], -0.378155697986, atol=1.0e-07)
+    assert np.allclose(omega[1], -0.145524587235, atol=1.0e-07)
 
 if __name__ == "__main__":
     test_eaeom3_chplus()

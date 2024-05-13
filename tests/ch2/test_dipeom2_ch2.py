@@ -19,5 +19,11 @@ def test_dipeom2_ch2():
     R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
     R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom2", state_index=[0])
 
+    #
+    # Check the results
+    #
+    assert np.allclose(Ecorr, -0.103642375239, atol=1.0e-07)
+    assert np.allclose(omega[0], -0.276654488613, atol=1.0e-07)
+
 if __name__ == "__main__":
     test_dipeom2_ch2()
