@@ -1,4 +1,5 @@
 import numpy as np
+import h5py
 from miniccpy.utilities import remove_file
 
 class DIIS:
@@ -25,32 +26,22 @@ class DIIS:
         self.vecfile = vecfile
         self.residfile = residfile
 
+        remove_file("cc-diis-vectors.hdf5")
         if self.out_of_core:
-            self.T_list = np.memmap(
-                self.vecfile, mode="w+", dtype=np.float64, shape=(self.ndim, self.diis_size)
-            )
-            self.T_residuum_list = np.memmap(
-                self.residfile, mode="w+", dtype=np.float64, shape=(self.ndim, self.diis_size)
-            )
-            self.flush()
+            f = h5py.File("cc-diis-vectors.hdf5", "w")
+            self.T_list = f.create_dataset("t-vectors", (self.diis_size, self.ndim), dtype=np.float64)
+            self.T_residuum_list = f.create_dataset("resid_vectors", (self.diis_size, self.ndim), dtype=np.float64)
         else:
-            self.T_list = np.zeros((self.ndim, diis_size))
-            self.T_residuum_list = np.zeros((self.ndim, diis_size))
+            self.T_list = np.zeros((self.diis_size, self.ndim))
+            self.T_residuum_list = np.zeros((self.diis_size, self.ndim))
 
     def cleanup(self):
         if self.out_of_core:
-            remove_file(self.vecfile)
-            remove_file(self.residfile)
+            remove_file("cc-diis-vectors.hdf5")
             
     def push(self, T_tuple, T_residuum_tuple, iteration):
-        self.T_list[:, iteration % self.diis_size] = np.hstack([t.flatten() for t in T_tuple])
-        self.T_residuum_list[:, iteration % self.diis_size] = np.hstack([dt.flatten() for dt in T_residuum_tuple])
-        if self.out_of_core:
-            self.flush()
-
-    def flush(self):
-        self.T_list.flush()
-        self.T_residuum_list.flush()
+        self.T_list[iteration % self.diis_size, :] = np.hstack([t.flatten() for t in T_tuple])
+        self.T_residuum_list[iteration % self.diis_size, :] = np.hstack([dt.flatten() for dt in T_residuum_tuple])
 
     def extrapolate(self, niter=None):
 
@@ -62,14 +53,10 @@ class DIIS:
         B_dim = m + 1
         B = -1.0 * np.ones((B_dim, B_dim))
 
-        nhalf = int(self.ndim / 2)
         for i in range(m):
             for j in range(i, m):
                 B[i, j] = np.dot(
-                    self.T_residuum_list[:nhalf, i], self.T_residuum_list[:nhalf, j]
-                )
-                B[i, j] += np.dot(
-                    self.T_residuum_list[nhalf:, i], self.T_residuum_list[nhalf:, j]
+                    self.T_residuum_list[i, :], self.T_residuum_list[j, :]
                 )
                 B[j, i] = B[i, j]
         B[-1, -1] = 0.0
@@ -79,10 +66,12 @@ class DIIS:
 
         # TODO: replace with numpy.linalg.solve
         # TODO: replace with scipy.linalg.lu
+        # B*c = rhs
+        # c = B\rhs
         coeff = solve_gauss(B, rhs)
         x_xtrap = np.zeros(self.ndim)
         for i in range(m):
-            x_xtrap += coeff[i] * self.T_list[:, i]
+            x_xtrap += coeff[i] * self.T_list[i, :]
 
         return x_xtrap
 
