@@ -2,7 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import lccsd_energy as lcc_energy
 from miniccpy.diis import DIIS
-from miniccpy.helper_cc3 import compute_l3, compute_leftcc3_intermediates
+from miniccpy.helper_cc3 import compute_l3, compute_ccs_intermediates
 
 def get_ccsdt_intermediates(l2, l3, t2, t3, o, v):
     nu, _, no, _ = t2.shape
@@ -103,7 +103,7 @@ def LH(l1, l2, l3, t1, t2, t3, f, g, H1, H2, omega, e_abc, o, v):
     H is the CCSDT similarity-transformed Hamiltonian and L is
     the EOMCCSDT linear de-excitation operator."""
     # Get CCS intermediates (it would be nice to not have to recompute these in left-CC)
-    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_leftcc3_intermediates(t1, t2, f, g, o, v)
+    h_vvov, h_vooo, h_voov, h_vvvv, h_oooo = compute_ccs_intermediates(t1, t2, f, g, o, v)
     # comptute L*T intermediates
     X1, X2 = get_ccsdt_intermediates(l2, l3, t2, t3, o, v)
     # update L1
