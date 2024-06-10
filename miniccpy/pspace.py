@@ -14,6 +14,12 @@ def active_particle(x, nact):
     else:
         return 0
 
+def cvs_core_occ(x, cvsmin, cvsmax):
+    if x < cvsmin or x > cvsmax:
+        return 0
+    else:
+        return 1
+
 def get_active_triples_pspace(no, nu, nacto=0, nactu=0, num_active=1, point_group="C1", orbsym=None, target_irrep="A"):
     from miniccpy.symmetry import get_pg_irreps, get_reference_symmetry
 
@@ -64,7 +70,7 @@ def get_active_triples_pspace(no, nu, nacto=0, nactu=0, num_active=1, point_grou
     print(f"   Active space contains {t3_excitations.shape[0]} triples")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
-    print(f"    Memory usage: {get_memory_usage()} MB")
+    print(f"   Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return t3_excitations
 
@@ -108,10 +114,10 @@ def get_active_4h2p_pspace(no, nu, nacto=0, num_active=2, point_group="C1", orbs
     if len(r3_excitations.shape) < 2:
         r3_excitations = np.ones((1, 6))
     # Print the number of triples of a given spincase 
-    print(f"   Active space contains {r3_excitations.shape[0]} 4p2h excitations")
+    print(f"   Active space contains {r3_excitations.shape[0]} 4h2p excitations")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
-    print(f"    Memory usage: {get_memory_usage()} MB")
+    print(f"   Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return r3_excitations
 
@@ -153,9 +159,57 @@ def get_active_4h2p_pspace_array(no, nu, nacto=0, num_active=2, point_group="C1"
                             pspace[c, d, i, j, k, l] = 1
                             cnt += 1
     # Print the number of triples of a given spincase 
-    print(f"   Active space contains {cnt} 4p2h excitations")
+    print(f"   Active space contains {cnt} 4h2p excitations")
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
-    print(f"    Memory usage: {get_memory_usage()} MB")
+    print(f"   Memory usage: {get_memory_usage()} MB")
     print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
     return pspace
+
+def get_cvs_4h2p_pspace(no, nu, cvsmin, cvsmax, num_core=1, point_group="C1", orbsym=None, target_irrep="A"):
+    from miniccpy.symmetry import get_pg_irreps, get_reference_symmetry
+
+    def count_cvs_core(occ):
+        return sum([cvs_core_occ(i, cvsmin, cvsmax) for i in occ])
+
+    pg_irrep_to_number = get_pg_irreps(point_group)
+    if orbsym is None:
+        orbsym = ["A" for i in range(no + nu)]
+
+    isym = [pg_irrep_to_number[p] for p in orbsym]
+    reference_irrep = get_reference_symmetry(no, point_group, isym)
+    sym_target = pg_irrep_to_number[target_irrep]
+    sym_ref = pg_irrep_to_number[reference_irrep]
+
+    print(f"   Constructing 4h-2p list for CVS-DIP-EOMCCSD(4h-2p)-type P space")
+    print("   ---------------------------------------------------")
+    print("   Total number of occupied orbitals = ", no)
+    print("   Minimum number of core orbitals = ", num_core)
+    print("   Core region defined as orbitals", cvsmin, "through", cvsmax)
+    print("   Reference Irrep = ", reference_irrep)
+    print(f"   Target Irrep = {target_irrep} ({point_group})")
+
+    tic = time.perf_counter()
+    r3_excitations = []
+    for i in range(no):
+        for j in range(i + 1, no):
+            for k in range(j + 1, no):
+                for l in range(k + 1, no):
+                    if count_cvs_core([i, j, k, l]) < num_core: continue
+                    sym_occ = sym_ref ^ isym[i] ^ isym[j] ^ isym[k] ^ isym[l]
+                    for c in range(nu):
+                        for d in range(c + 1, nu):
+                            sym_unocc = isym[c + no] ^ isym[d + no]
+                            if sym_occ ^ sym_unocc != sym_target: continue
+                            r3_excitations.append([c + 1, d + 1, i + 1, j + 1, k + 1, l + 1])
+    # Convert the lists into Numpy arrays
+    r3_excitations = np.asarray(r3_excitations, order="F")
+    if len(r3_excitations.shape) < 2:
+        r3_excitations = np.ones((1, 6))
+    # Print the number of triples of a given spincase
+    print(f"   CVS space contains {r3_excitations.shape[0]} 4h2p excitations")
+    toc = time.perf_counter()
+    minutes, seconds = divmod(toc - tic, 60)
+    print(f"   Memory usage: {get_memory_usage()} MB")
+    print(f"   Completed in {minutes:.1f}m {seconds:.1f}s\n")
+    return r3_excitations

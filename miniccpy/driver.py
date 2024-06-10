@@ -230,17 +230,17 @@ def get_hbar(T, fock, g, o, v, method):
 
     return H1, H2
 
-def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRINT_THRESH, mult=-1):
+def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRINT_THRESH, mult=-1, cvsmin=-1, cvsmax=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess
-    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector
+    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess, dipcis_cvs_guess, dipcisd_guess, dipcisd_cvs_guess
+    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector, print_dip_amplitudes
 
     no, nu = H1[o, v].shape
 
     # get the initial guess
     tic = time.perf_counter()
     if method == "cisd":
-        nroot = min(nroot, no * nu)
+        nroot = min(nroot, no * nu + int(nacto*(nacto - 1)/2 * nactu*(nactu - 1)/2))
         R0, omega0 = cisd_guess(H1, H2, o, v, nroot, nacto, nactu, mult)
     elif method == "cis":
         nroot = min(nroot, no * nu)
@@ -259,7 +259,17 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
         R0, omega0 = ipcis_guess(H1, H2, o, v, nroot)
     elif method == "dipcis":
         nroot = min(nroot, no**2)
-        R0, omega0 = dipcis_guess(H1, H2, o, v, nroot)
+        if cvsmin != -1 and cvsmax != -1:
+            R0, omega0 = dipcis_cvs_guess(H1, H2, o, v, nroot, cvsmin, cvsmax)
+        else:
+            R0, omega0 = dipcis_guess(H1, H2, o, v, nroot)
+    elif method == "dipcisd":
+        nroot = min(nroot, int(no*(no - 1)/2 + nacto*(nacto - 1)*(nacto - 2)/6 * nactu))
+        if cvsmin != -1 and cvsmax != -1:
+            R0, omega0 = dipcisd_cvs_guess(H1, H2, o, v, nroot, cvsmin, cvsmax, nacto, nactu)
+        else:
+            R0, omega0 = dipcisd_guess(H1, H2, o, v, nroot, nacto, nactu)
+
     toc = time.perf_counter()
     minutes, seconds = divmod(toc - tic, 60)
 
@@ -288,13 +298,15 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
             print_2p_vector(R0[:nu**2, i].reshape(nu, nu), no, print_threshold=print_threshold)
         elif method == "dipcis":
             print_2h_vector(R0[:no**2, i].reshape(no, no), nu, print_threshold=print_threshold)
+        elif method == "dipcisd":
+           print_dip_amplitudes(R0[:no**2, i].reshape(no, no), R0[no**2:, i].reshape(no, no, nu, no), print_threshold=print_threshold)
         print("")
     print("")
 
     return np.real(R0), np.real(omega0)
 
 def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, g=None, maxit=80, convergence=1.0e-07, max_size=20, diis_size=6,
-                   do_diis=True, r3_excitations=None, out_of_core=False):
+                   do_diis=True, r3_excitations=None, out_of_core=False, cvsmin=-1, cvsmax=-1):
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
     from miniccpy.printing import print_amplitudes, print_dip_amplitudes
@@ -328,9 +340,15 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size)
         else: # All other EOMCC calculations using conventional Davidson
             if r3_excitations is not None:
-                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, r3_excitations, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
+                if cvsmin != -1 and cvsmax != -1:
+                    R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, cvsmin, cvsmax, r3_excitations, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
+                else:
+                    R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, r3_excitations, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
             else:
-                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
+                if cvsmin != -1 and cvsmax != -1:
+                    R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, cvsmin, cvsmax, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
+                else:
+                    R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
         toc = time.time()
 
         minutes, seconds = divmod(toc - tic, 60)
@@ -344,7 +362,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    --------------------------------------------")
         if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
             print_amplitudes(R[n][0], R[n][1], PRINT_THRESH, rhf=flag_rhf)
-        if method.lower() in ["dipeom3", "dipeom4", "dipeom4_p"]:
+        if method.lower() in ["dipeom3", "dipeom3-cvs", "dipeom4", "dipeom4_p", "dipeom4-cvs"]:
             print_dip_amplitudes(R[n][0], R[n][1], PRINT_THRESH)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
