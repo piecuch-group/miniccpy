@@ -2235,6 +2235,70 @@ module dipeom4_p
                   end do
 
               end subroutine update_r
+         
+              subroutine update_r_full_denom(r1,r2,r4_amps,r4_excits,&
+                                             omega,&
+                                             h1_oo,h1_vv,&
+                                             h2_oooo,h2_voov,h2_vvvv,&
+                                             n4,no,nu)
+
+                  integer, intent(in) :: no, nu, n4
+                  real(kind=8), intent(in) :: h1_oo(no,no),h1_vv(nu,nu)
+                  real(kind=8), intent(in) :: h2_oooo(no,no,no,no),h2_voov(nu,no,no,nu),h2_vvvv(nu,nu,nu,nu)
+                  real(kind=8), intent(in) :: omega
+                  integer, intent(in) :: r4_excits(n4,6)
+
+                  real(kind=8), intent(inout) :: r1(no,no)
+                  !f2py intent(in,out) :: r1(0:no-1,0:no-1)
+                  real(kind=8), intent(inout) :: r2(no,no,nu,no)
+                  !f2py intent(in,out) :: r2(0:no-1,0:no-1,0:nu-1,0:no-1)
+                  real(kind=8), intent(inout) :: r4_amps(n4)
+                  !f2py intent(in,out) :: r4_amps(0:n4-1)
+
+                  integer :: idet, a, b, c, i, j, k, l
+                  real(kind=8) :: denom
+
+                  do i = 1,no
+                     do j = 1,no
+                        if (i==j) then
+                           r1(i,j) = 0.0d0
+                        end if
+                        denom = omega + h1_oo(i,i) + h1_oo(j,j)&
+                                      - h2_oooo(i,j,i,j)
+                        r1(i,j) = r1(i,j)/denom
+                     end do
+                  end do
+
+                  do i = 1,no
+                     do j = 1,no
+                        do c = 1,nu
+                           do k = 1,no
+                              if (i==j .or. j==k .or. i==k) then
+                                 r2(i,j,c,k) = 0.0d0
+                              end if
+                              denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) - h1_vv(c,c)&
+                                            - h2_oooo(i,j,i,j) - h2_oooo(i,k,i,k) - h2_oooo(j,k,j,k)&
+                                            - h2_voov(c,i,i,c) - h2_voov(c,j,j,c) - h2_voov(c,k,k,c)
+                              r2(i,j,c,k) = r2(i,j,c,k)/denom
+                           end do
+                        end do
+                     end do
+                  end do
+
+                  do idet = 1,n4
+                     a = r4_excits(idet,1); b = r4_excits(idet,2);
+                     i = r4_excits(idet,3); j = r4_excits(idet,4); k = r4_excits(idet,5); l = r4_excits(idet,6);
+
+                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_oo(l,l) - h1_vv(a,a) - h1_vv(b,b)&
+                                   - h2_oooo(i,j,i,j) - h2_oooo(i,k,i,k) - h2_oooo(i,l,i,l) - h2_oooo(j,k,j,k)&
+                                   - h2_oooo(j,l,j,l) - h2_oooo(k,l,k,l)&
+                                   - h2_voov(a,i,i,a) - h2_voov(a,j,j,a) - h2_voov(a,k,k,a) - h2_voov(a,l,l,a)&
+                                   - h2_voov(b,i,i,b) - h2_voov(b,j,j,b) - h2_voov(b,k,k,b) - h2_voov(b,l,l,b)&
+                                   - h2_vvvv(a,b,a,b)
+                     r4_amps(idet) = r4_amps(idet)/denom
+                  end do
+
+              end subroutine update_r_full_denom
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!! SORTING FUNCTIONS !!!!!!!!!!!!!!!!!!!!!!!!!!!!
