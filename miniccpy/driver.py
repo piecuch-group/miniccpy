@@ -130,8 +130,33 @@ def run_mpn_calc(fock, g, o, v, method):
     print("    MPn calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
-
     return e_corr
+
+def run_cmx_calc(T, L, Ecorr, H1, H2, o, v, method):
+    """Compute the CMX energy correction specified
+    by `method`."""
+    # check if requested MBPT calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    # Run the CMX calculation to obtain the correction to the CC correlation energy
+    tic = time.time()
+    delta_corr = calculation(T, L, Ecorr, H1, H2, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+    print("")
+    print("    CMX Correction Energy: {: 20.12f}".format(delta_corr))
+    print("    Total Corrlation Energy: {: 20.12f}".format(Ecorr + delta_corr))
+    print("")
+    print("    CMX calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
+    print("")
+    return delta_corr
 
 def run_cc_calc(fock, g, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=0, out_of_core=False, use_quasi=False, t3_excitations=None):
     """Run the ground-state CC calculation specified by `method`."""
