@@ -39,7 +39,7 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
             maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10,
             symmetry=None, cartesian=False, unit="Bohr", uhf=False, rhf=False,
-            return_orbsym=False):
+            return_orbsym=False, x2c=False):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
@@ -63,11 +63,20 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
         symmetry=point_group,
     )
     if uhf:
-        mf = scf.UHF(mol)
+        if x2c:
+            mf = scf.UHF(mol).x2c()
+        else:
+            mf = scf.UHF(mol)
     elif rhf:
-        mf = scf.RHF(mol)
+        if x2c:
+            mf = scf.RHF(mol).x2c()
+        else:
+            mf = scf.RHF(mol)
     else:
-        mf = scf.ROHF(mol)
+        if x2c:
+            mf = scf.ROHF(mol).x2c()
+        else:
+            mf = scf.ROHF(mol)
     # Put in SCF options for PySCF
     mf.level_shift = level_shift
     mf.damp = damp
