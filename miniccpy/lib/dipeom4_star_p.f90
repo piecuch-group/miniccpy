@@ -138,8 +138,7 @@ module dipeom4_star_p
                                      t2,r2,&
                                      h1_oo,h1_vv,&
                                      h2_vvov,h2_vooo,x2_oooo,x2_oovv,&
-                                     h2_oooo,h2_voov,h2_vvvv,&
-                                     n4,& 
+                                     n4,&
                                      no,nu)
 
                   integer, intent(in) :: no, nu, n4
@@ -148,10 +147,7 @@ module dipeom4_star_p
                                               h2_vvov(nu,nu,no,nu),&
                                               h2_vooo(nu,no,no,no),&
                                               x2_oooo(no,no,no,no),&
-                                              x2_oovv(no,no,nu,nu),&
-                                              h2_oooo(no,no,no,no),&
-                                              h2_voov(nu,no,no,nu),&
-                                              h2_vvvv(nu,nu,nu,nu)
+                                              x2_oovv(no,no,nu,nu)
 
                   integer, intent(inout) :: r4_excits(n4,6)
                   !f2py intent(in,out) :: r4_excits(0:n4-1,0:5)
@@ -533,6 +529,97 @@ module dipeom4_star_p
 
               end subroutine build_hr4_p
 
+              subroutine build_hr4_p_noniterative(delta_star,&
+                                                  t2,r2,omega,&
+                                                  h1_oo,h1_vv,&
+                                                  h2_vvov,h2_vooo,x2_oooo,x2_oovv,&
+                                                  no,nu)
+
+                  integer, intent(in) :: no, nu
+                  real(kind=8), intent(in) :: t2(nu,nu,no,no),r2(no,no,nu,no),&
+                                              h1_oo(no,no),h1_vv(nu,nu),&
+                                              h2_vvov(nu,nu,no,nu),&
+                                              h2_vooo(nu,no,no,no),&
+                                              x2_oooo(no,no,no,no),&
+                                              x2_oovv(no,no,nu,nu),&
+                                              omega
+                  
+                  real(kind=8), intent(out) :: delta_star
+
+                  real(kind=8) :: denom, res_mm23
+                  integer :: a, b, c, d, i, j, k, l, e, f, m, n, idet, jdet
+                  
+                  ! Zero the correction
+                  delta_star = 0.0d0
+
+                  !!!! BEGIN OMP PARALLEL SECTION !!!!
+                  !$omp parallel shared(delta_star,&
+                  !$omp r2,t2,omega,&
+                  !$omp h1_oo,h1_vv,&
+                  !$omp h2_vvov,h2_vooo,&
+                  !$omp x2_oovv,x2_oooo,&
+                  !$omp no,nu),&
+                  !$omp private(a,b,c,d,i,j,k,l,m,n,e,f,&
+                  !$omp res_mm23,denom)
+                  !$omp do schedule(static)
+                  do a=1,nu; do b=a+1,nu;
+                  do i=1,no; do j=i+1,no; do k=j+1,no; do l=k+1,no;
+                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_vv(l,l) - h1_vv(a,a) - h1_vv(b,b)
+                     
+                     res_mm23 = 0.0d0
+                     do m = 1,no
+                        ! A(ij/kl)A(ab) -h2(bmlk)*r2(ijam)
+                        ! (1)
+                        res_mm23 = res_mm23 - h2_vooo(b,m,l,k)*r2(i,j,a,m) ! (1)
+                        res_mm23 = res_mm23 + h2_vooo(b,m,l,i)*r2(k,j,a,m) ! (ik)
+                        res_mm23 = res_mm23 + h2_vooo(b,m,i,k)*r2(l,j,a,m) ! (il)
+                        res_mm23 = res_mm23 + h2_vooo(b,m,l,j)*r2(i,k,a,m) ! (jk)
+                        res_mm23 = res_mm23 + h2_vooo(b,m,j,k)*r2(i,l,a,m) ! (jl)
+                        res_mm23 = res_mm23 - h2_vooo(b,m,j,i)*r2(k,l,a,m) ! (ik)(jl)
+                        ! (ab)
+                        res_mm23 = res_mm23 + h2_vooo(a,m,l,k)*r2(i,j,b,m) ! (1)
+                        res_mm23 = res_mm23 - h2_vooo(a,m,l,i)*r2(k,j,b,m) ! (ik)
+                        res_mm23 = res_mm23 - h2_vooo(a,m,i,k)*r2(l,j,b,m) ! (il)
+                        res_mm23 = res_mm23 - h2_vooo(a,m,l,j)*r2(i,k,b,m) ! (jk)
+                        res_mm23 = res_mm23 - h2_vooo(a,m,j,k)*r2(i,l,b,m) ! (jl)
+                        res_mm23 = res_mm23 + h2_vooo(a,m,j,i)*r2(k,l,b,m) ! (ik)(jl)
+                        ! A(l/ijk) -x2(ijmk)*t2(abml)
+                        res_mm23 = res_mm23 - x2_oooo(i,j,m,k)*t2(a,b,m,l) ! (1)
+                        res_mm23 = res_mm23 + x2_oooo(l,j,m,k)*t2(a,b,m,i) ! (il)
+                        res_mm23 = res_mm23 + x2_oooo(i,l,m,k)*t2(a,b,m,j) ! (jl)
+                        res_mm23 = res_mm23 + x2_oooo(i,j,m,l)*t2(a,b,m,k) ! (kl)
+                     end do
+                     do e = 1,nu
+                        ! A(l/ijk) h2(bale)*r2(ijek)
+                        res_mm23 = res_mm23 + h2_vvov(b,a,l,e)*r2(i,j,e,k) ! (1)
+                        res_mm23 = res_mm23 - h2_vvov(b,a,i,e)*r2(l,j,e,k) ! (il)
+                        res_mm23 = res_mm23 - h2_vvov(b,a,j,e)*r2(i,l,e,k) ! (jl)
+                        res_mm23 = res_mm23 - h2_vvov(b,a,k,e)*r2(i,j,e,l) ! (kl)
+                        ! A(ij/kl)A(ab) x2(ijae)*t2(ebkl)
+                        ! (1)
+                        res_mm23 = res_mm23 + x2_oovv(i,j,a,e)*t2(e,b,k,l) ! (1)
+                        res_mm23 = res_mm23 - x2_oovv(k,j,a,e)*t2(e,b,i,l) ! (ik)
+                        res_mm23 = res_mm23 - x2_oovv(l,j,a,e)*t2(e,b,k,i) ! (il)
+                        res_mm23 = res_mm23 - x2_oovv(i,k,a,e)*t2(e,b,j,l) ! (jk)
+                        res_mm23 = res_mm23 - x2_oovv(i,l,a,e)*t2(e,b,k,j) ! (jl)
+                        res_mm23 = res_mm23 + x2_oovv(k,l,a,e)*t2(e,b,i,j) ! (ik)(jl)
+                        ! (ab)
+                        res_mm23 = res_mm23 - x2_oovv(i,j,b,e)*t2(e,a,k,l) ! (1)
+                        res_mm23 = res_mm23 + x2_oovv(k,j,b,e)*t2(e,a,i,l) ! (ik)
+                        res_mm23 = res_mm23 + x2_oovv(l,j,b,e)*t2(e,a,k,i) ! (il)
+                        res_mm23 = res_mm23 + x2_oovv(i,k,b,e)*t2(e,a,j,l) ! (jk)
+                        res_mm23 = res_mm23 + x2_oovv(i,l,b,e)*t2(e,a,k,j) ! (jl)
+                        res_mm23 = res_mm23 - x2_oovv(k,l,b,e)*t2(e,a,i,j) ! (ik)(jl)
+                     end do
+                     delta_star = delta_star + res_mm23 * res_mm23 / denom
+                  end do; end do;
+                  end do; end do; end do; end do;
+                  !$omp end do
+                  !$omp end parallel
+                  !!!! END OMP PARALLEL SECTION !!!!
+
+              end subroutine build_hr4_p_noniterative
+         
               subroutine build_I_oooo(I_oooo,&
                                       r4_amps,r4_excits,&
                                       h2_oovv,&
@@ -647,11 +734,13 @@ module dipeom4_star_p
 
               subroutine update_r(r1,r2,r4_amps,r4_excits,&
                                   omega,&
+                                  fock_oo,fock_vv,&
                                   h1_oo,h1_vv,&
                                   n4,no,nu)
 
                   integer, intent(in) :: no, nu, n4
                   real(kind=8), intent(in) :: h1_oo(no,no),h1_vv(nu,nu)
+                  real(kind=8), intent(in) :: fock_oo(no,no),fock_vv(nu,nu)
                   real(kind=8), intent(in) :: omega
                   integer, intent(in) :: r4_excits(n4,6)
 
@@ -693,7 +782,7 @@ module dipeom4_star_p
                      a = r4_excits(idet,1); b = r4_excits(idet,2); 
                      i = r4_excits(idet,3); j = r4_excits(idet,4); k = r4_excits(idet,5); l = r4_excits(idet,6);
 
-                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_oo(l,l) - h1_vv(a,a) - h1_vv(b,b)
+                     denom = omega + fock_oo(i,i) + fock_oo(j,j) + fock_oo(k,k) + fock_oo(l,l) - fock_vv(a,a) - fock_vv(b,b)
                      r4_amps(idet) = r4_amps(idet)/denom
                   end do
 
@@ -701,11 +790,15 @@ module dipeom4_star_p
          
               subroutine update_r_full_denom(r1,r2,r4_amps,r4_excits,&
                                              omega,&
+                                             fock_oo,fock_vv,&
+                                             g_oooo,g_voov,g_vvvv,&
                                              h1_oo,h1_vv,&
                                              h2_oooo,h2_voov,h2_vvvv,&
                                              n4,no,nu)
 
                   integer, intent(in) :: no, nu, n4
+                  real(kind=8), intent(in) :: fock_oo(no,no),fock_vv(nu,nu)
+                  real(kind=8), intent(in) :: g_oooo(no,no,no,no),g_voov(nu,no,no,nu),g_vvvv(nu,nu,nu,nu)
                   real(kind=8), intent(in) :: h1_oo(no,no),h1_vv(nu,nu)
                   real(kind=8), intent(in) :: h2_oooo(no,no,no,no),h2_voov(nu,no,no,nu),h2_vvvv(nu,nu,nu,nu)
                   real(kind=8), intent(in) :: omega
@@ -752,12 +845,12 @@ module dipeom4_star_p
                      a = r4_excits(idet,1); b = r4_excits(idet,2);
                      i = r4_excits(idet,3); j = r4_excits(idet,4); k = r4_excits(idet,5); l = r4_excits(idet,6);
 
-                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_oo(l,l) - h1_vv(a,a) - h1_vv(b,b)&
-                                   - h2_oooo(i,j,i,j) - h2_oooo(i,k,i,k) - h2_oooo(i,l,i,l) - h2_oooo(j,k,j,k)&
-                                   - h2_oooo(j,l,j,l) - h2_oooo(k,l,k,l)&
-                                   - h2_voov(a,i,i,a) - h2_voov(a,j,j,a) - h2_voov(a,k,k,a) - h2_voov(a,l,l,a)&
-                                   - h2_voov(b,i,i,b) - h2_voov(b,j,j,b) - h2_voov(b,k,k,b) - h2_voov(b,l,l,b)&
-                                   - h2_vvvv(a,b,a,b)
+                     denom = omega + fock_oo(i,i) + fock_oo(j,j) + fock_oo(k,k) + fock_oo(l,l) - fock_vv(a,a) - fock_vv(b,b)&
+                                   - g_oooo(i,j,i,j) - g_oooo(i,k,i,k) - g_oooo(i,l,i,l) - g_oooo(j,k,j,k)&
+                                   - g_oooo(j,l,j,l) - g_oooo(k,l,k,l)&
+                                   - g_voov(a,i,i,a) - g_voov(a,j,j,a) - g_voov(a,k,k,a) - g_voov(a,l,l,a)&
+                                   - g_voov(b,i,i,b) - g_voov(b,j,j,b) - g_voov(b,k,k,b) - g_voov(b,l,l,b)&
+                                   - g_vvvv(a,b,a,b)
                      r4_amps(idet) = r4_amps(idet)/denom
                   end do
 

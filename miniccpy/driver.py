@@ -344,6 +344,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
     from miniccpy.printing import print_amplitudes, print_dip_amplitudes
+    from miniccpy.ccsdt_star import ccsd_t3_correction
     # check if requested EOMCC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
@@ -356,6 +357,10 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
     # import the specific CC method module and get its update function
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
+
+    #if method == "dipeom4_star_p":
+    #    # update T1 and T2 with approximate T3 contributions
+    #    T, H1, H2 = ccsd_t3_correction(T, fock, g, H1, H2, o, v)
 
     nroot = len(state_index)
 
@@ -372,6 +377,11 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size)
+        elif method.lower() == "dipeom4_star_p": # Approximate DIP-EOMCCSD(4h-2p)* routine
+            if cvsmin != -1 and cvsmax != -1:
+                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, cvsmin, cvsmax, r3_excitations, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
+            else:
+                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, r3_excitations, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
         else: # All other EOMCC calculations using conventional Davidson
             if r3_excitations is not None:
                 if cvsmin != -1 and cvsmax != -1:
@@ -396,7 +406,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print("    --------------------------------------------")
         if method.lower() in ["eomccsd", "eomccsdt", "eomrccsd", "eomrccsdt", "eomcc3", "eomcc3-lin"]:
             print_amplitudes(R[n][0], R[n][1], PRINT_THRESH, rhf=flag_rhf)
-        if method.lower() in ["dipeom3", "dipeom3-cvs", "dipeom4", "dipeom4_p", "dipeom4-cvs"]:
+        if method.lower() in ["dipeom3", "dipeom3-cvs", "dipeom4", "dipeom4_p", "dipeom4-cvs", "dipeom4_star_p"]:
             print_dip_amplitudes(R[n][0], R[n][1], PRINT_THRESH)
         print("")
         print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
@@ -488,7 +498,7 @@ def run_correction(T, L, fock, H1, H2, o, v, method):
     return e_correction
 
 def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method): 
-    """Run the ground-state EOMCC correction specified by `method`."""
+    """Run the excited-state EOMCC correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
     if method not in MODULES:
@@ -509,6 +519,32 @@ def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method):
         print(f"    Triples correction energy ({key}): {value}")
     print("")
     print("    EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
+    print("")
+    return e_correction
+
+def run_dip_correction(T, R, omega, fock, g, H1, H2, o, v, method):
+    """Run the DIP correction specified by `method`."""
+
+    # check if requested CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    tic = time.time()
+    e_correction = calculation(T, R, omega, fock, g, H1, H2, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+
+    print("")
+    for key, value in e_correction.items():
+        print(f"    4h-2p correction energy ({key}): {value}")
+    print("")
+    print("    DIP-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
     print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
     return e_correction

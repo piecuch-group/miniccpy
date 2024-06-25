@@ -11,9 +11,7 @@ def get_integrals_from_pyscf(meanfield):
     mo_coeff = meanfield.mo_coeff
     norbitals = mo_coeff.shape[1]
 
-    kinetic_aoints = molecule.intor_symmetric("int1e_kin")
-    nuclear_aoints = molecule.intor_symmetric("int1e_nuc")
-    e1int = np.einsum("pi,pq,qj->ij", mo_coeff, kinetic_aoints + nuclear_aoints, mo_coeff)
+    e1int = np.einsum("pi,pq,qj->ij", mo_coeff, meanfield.get_hcore(), mo_coeff)
     e2int = np.transpose(
         np.reshape(ao2mo.kernel(molecule, mo_coeff, compact=False), 4 * (norbitals,)),
         (0, 2, 1, 3),

@@ -250,7 +250,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     # I(ijmk)
     I_oooo = (
           (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", H2[o, o, o, v], r2, optimize=True)
-        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", H2[o, o, o, o], r1, optimize=True)
+        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", H2[o, o, o, o], r1, optimize=True) # T2
         + (1.0 / 12.0) * np.einsum("mnef,ijefkn->ijmk", H2[o, o, v, v], r3, optimize=True)
     )
     # antisymmetrize A(ijk)
@@ -259,7 +259,7 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     # I(ijce)
     I_oovv = (
         (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", H2[v, o, v, v], r2, optimize=True)
-        + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True)
+        + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True) # T2
         + 0.5 * np.einsum("nmie,njcm->ijce", H2[o, o, o, v], r2, optimize=True)
         - (1.0 / 4.0) * np.einsum("mnef,ijcfmn->ijce", H2[o, o, v, v], r3, optimize=True)
         + 0.25 * np.einsum("ef,edil->lidf", I_vv, t2, optimize=True)
@@ -268,16 +268,16 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     I_oovv -= np.transpose(I_oovv, (1, 0, 2, 3))
     #
     # Moment-like terms
-    X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", H2[v, v, o, v], r2, optimize=True)
-    X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", H2[v, o, o, o], r2, optimize=True)
+    X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", H2[v, v, o, v], r2, optimize=True) # T2
+    X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", H2[v, o, o, o], r2, optimize=True) # T2
     X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
     X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
     # 
-    X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True)
-    X3 -= (4.0 / 48.0) * np.einsum("mi,mjcdkl->ijcdkl", H1[o, o], r3, optimize=True)
-    X3 += (1.0 / 96.0) * np.einsum("cdef,ijefkl->ijcdkl", H2[v, v, v, v], r3, optimize=True)
-    X3 += (6.0 / 96.0) * np.einsum("mnij,mncdkl->ijcdkl", H2[o, o, o, o], r3, optimize=True)
-    X3 += (8.0 / 48.0) * np.einsum("dmle,ijcekm->ijcdkl", H2[v, o, o, v], r3, optimize=True)
+    X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True) # T2
+    X3 -= (4.0 / 48.0) * np.einsum("mi,mjcdkl->ijcdkl", H1[o, o], r3, optimize=True) # T2
+    # X3 += (1.0 / 96.0) * np.einsum("cdef,ijefkl->ijcdkl", H2[v, v, v, v], r3, optimize=True)
+    # X3 += (6.0 / 96.0) * np.einsum("mnij,mncdkl->ijcdkl", H2[o, o, o, o], r3, optimize=True)
+    # X3 += (8.0 / 48.0) * np.einsum("dmle,ijcekm->ijcdkl", H2[v, o, o, v], r3, optimize=True)
     ### Explicit usage of 3-body Hbar ###
     #X3 -= (12.0 / 96.0) * np.einsum("dmnlkf,ijcfmn->ijcdkl", I_voooov, r3, optimize=True)
     #X3 += (4.0 / 96.0) * np.einsum("dcnlef,ijefkn->ijcdkl", I_vvoovv, r3, optimize=True)

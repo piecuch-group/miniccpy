@@ -9,7 +9,7 @@ from miniccpy.lib import dipeom4_star_p
 # update and r3_amps/HR3 and r3_excitations will be out of alignment. This behavior
 # can be checked using the tmp variables.
 
-def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
+def kernel(R0, T, omega, fock, g, H1, H2, o, v, r3_excitations=None, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
     non-Hermitian Davidson algorithm for a specific root defined by an initial
@@ -54,7 +54,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     sigma[0, :], r3_excitations = HR(R[:n1].reshape(nocc, nocc),
                      R[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                      R[n1+n2:], r3_excitations,
-                     t1, t2, H1, H2, o, v, do_r3)
+                     t1, t2, fock, g, H1, H2, o, v, do_r3)
 
     print("    ==> DIP-EOMCC(4h-2p)(P)* iterations <==")
     print("")
@@ -97,6 +97,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
                    residual[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                    residual[n1+n2:], r3_excitations,
                    omega,
+                   fock[o, o], fock[v, v],
                    H1[o, o], H1[v, v])
         for p in range(curr_size):
             b = B[p, :] / np.linalg.norm(B[p, :])
@@ -109,7 +110,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
             sigma[curr_size, :], r3_excitations = HR(q[:n1].reshape(nocc, nocc),
                                      q[n1:n1+n2].reshape(nocc, nocc, nunocc, nocc),
                                      q[n1+n2:], r3_excitations,
-                                     t1, t2, H1, H2, o, v, do_r3)
+                                     t1, t2, fock, g, H1, H2, o, v, do_r3)
         else:
             # Basic restart - use the last approximation to the eigenvector
             print("       **Deflating subspace**")
@@ -119,7 +120,7 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
                 sigma[j, :], r3_excitations = HR(restart_block[:n1, j].reshape(nocc, nocc),
                                  restart_block[n1:n1+n2, j].reshape(nocc, nocc, nunocc, nocc),
                                  restart_block[n1+n2:, j], r3_excitations,
-                                 t1, t2, H1, H2, o, v, do_r3)
+                                 t1, t2, fock, g, H1, H2, o, v, do_r3)
             curr_size = restart_block.shape[1] - 1
 
         curr_size += 1
@@ -140,13 +141,13 @@ def kernel(R0, T, omega, H1, H2, o, v, r3_excitations=None, maxit=80, convergenc
     remove_file("eomcc-vectors.hdf5")
     return R, omega, r0, rel
 
-def update(r1, r2, r3, r3_excitations, omega, h1_oo, h1_vv):
+def update(r1, r2, r3, r3_excitations, omega, fock_oo, fock_vv, h1_oo, h1_vv):
     """Perform the diagonally preconditioned residual (DPR) update
     to get the next correction vector."""
-    r1, r2, r3 = dipeom4_star_p.dipeom4_star_p.update_r(r1, r2, r3, r3_excitations, omega, h1_oo, h1_vv)
+    r1, r2, r3 = dipeom4_star_p.dipeom4_star_p.update_r(r1, r2, r3, r3_excitations, omega, fock_oo, fock_vv, h1_oo, h1_vv)
     return np.hstack([r1.flatten(), r2.flatten(), r3])
 
-def HR(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, do_r3):
+def HR(r1, r2, r3, r3_excitations, t1, t2, fock, g, H1, H2, o, v, do_r3):
     """Compute the matrix-vector product H * R, where
     H is the CCSD similarity-transformed Hamiltonian and R is
     the DIP-EOMCC linear excitation operator."""
@@ -156,7 +157,7 @@ def HR(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, do_r3):
     HR2 = build_HR2(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
     # update R3
     if do_r3:
-        HR3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
+        HR3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, fock, g, H1, H2, o, v)
     return np.hstack([HR1.flatten(), HR2.flatten(), HR3]), r3_excitations
 
 def build_HR1(r1, r2, r3, r3_excitations, H1, H2, o, v):
@@ -188,37 +189,46 @@ def build_HR2(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
     X2 = dipeom4_star_p.dipeom4_star_p.build_hr2(X2, r3, r3_excitations, H1[o, v], H2[v, o, v, v], H2[o, o, o, v])
     return X2
 
-def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
+def build_HR3(r1, r2, r3, r3_excitations, t1, t2, fock, g, H1, H2, o, v):
     """Compute the projection of HR on 4h-2p excitations
-        X[i, j, c, d, k, l] = < ijklcd | [ HBar(CCSD) * (R1 + R2 + R3) ]_C | 0 >
+        X[i, j, c, d, k, l] = < ijklcd | [ HBar(CCSD) * (R1 + R2 + R3) ]_C | 0 >,
+        approximated complete to 3rd-order in MBPT (assuming 2h is 0th order). The
+        resulting terms include (H[2]*R1)_C + (H[1]*R2)_C + (F_N*R3)_C.
     """
     # Intermediates
+    # This term factorizes the 4-body HBar formed by (V_N*T2^2)_C, which enters at 3rd-order.
+    # This should be removed too
     I_vv = (
             0.5 * np.einsum("mnef,mn->ef", H2[o, o, v, v], r1, optimize=True)
     )
 
     # I(ijmk)
     I_oooo = (
-          (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", H2[o, o, o, v], r2, optimize=True)
-        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", H2[o, o, o, o], r1, optimize=True)
+          (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", H2[o, o, o, v], r2, optimize=True) # includes T1
+        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", H2[o, o, o, o], r1, optimize=True) # includes T1 and T2
     )
-    I_oooo = dipeom4_star_p.dipeom4_star_p.build_i_oooo(I_oooo, r3, r3_excitations, H2[o, o, v, v])
+    # antisymmetrize A(ijk)
+    I_oooo -= np.transpose(I_oooo, (0, 3, 2, 1)) # A(jk)
+    I_oooo -= np.transpose(I_oooo, (1, 0, 2, 3)) + np.transpose(I_oooo, (3, 1, 2, 0)) # A(i/jk)
+    # This (V_N*R3)_C term is removed
+    #I_oooo = dipeom4_star_p.dipeom4_star_p.build_i_oooo(I_oooo, r3, r3_excitations, H2[o, o, v, v])
 
     # I(ijce)
     I_oovv = (
-        (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", H2[v, o, v, v], r2, optimize=True)
-        + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True)
-        + 0.5 * np.einsum("nmie,njcm->ijce", H2[o, o, o, v], r2, optimize=True)
-        + 0.25 * np.einsum("ef,edil->lidf", I_vv, t2, optimize=True)
+        (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", H2[v, o, v, v], r2, optimize=True) # includes T1
+        + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True) # includes T1 and T2
+        + 0.5 * np.einsum("nmie,njcm->ijce", H2[o, o, o, v], r2, optimize=True) # includes T1
+        + 0.25 * np.einsum("ef,edil->lidf", I_vv, t2, optimize=True) # remove 4-body HBar term
     )
-    I_oovv = dipeom4_star_p.dipeom4_star_p.build_i_oovv(I_oovv, r3, r3_excitations, H2[o, o, v, v])
+    # antisymmetrize A(ij)
+    I_oovv -= np.transpose(I_oovv, (1, 0, 2, 3))
+    # This (V_N*R3)_C term is removed
+    #I_oovv = dipeom4_star_p.dipeom4_star_p.build_i_oovv(I_oovv, r3, r3_excitations, H2[o, o, v, v])
 
     X3, r3, r3_excitations = dipeom4_star_p.dipeom4_star_p.build_hr4_p(
             r3, r3_excitations,
             t2, r2,
-            H1[o, o], H1[v, v],
-            H2[v, v, o, v], H2[v, o, o, o], I_oooo, I_oovv,
-            H2[o, o, o, o], H2[v, o, o, v], H2[v, v, v, v].transpose(3, 2, 1, 0),
+            fock[o, o], fock[v, v],
+            g[v, v, o, v], g[v, o, o, o], I_oooo, I_oovv,
     )
     return X3, r3_excitations
-
