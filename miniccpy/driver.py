@@ -344,7 +344,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
     """Run the IP-/EA- or EE-EOMCC calculation specified by `method`.
     Currently, this module only supports CIS-type initial guesses."""
     from miniccpy.printing import print_amplitudes, print_dip_amplitudes
-    from miniccpy.ccsdt_star import ccsd_t3_correction
+
     # check if requested EOMCC calculation is implemented in modules
     if method not in MODULES:
         raise NotImplementedError(
@@ -358,7 +358,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
 
-    #if method == "dipeom4_star_p":
+    # if method == "dipeom4_star_p":
     #    # update T1 and T2 with approximate T3 contributions
     #    T, H1, H2 = ccsd_t3_correction(T, fock, g, H1, H2, o, v)
 

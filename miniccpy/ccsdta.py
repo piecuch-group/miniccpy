@@ -1,31 +1,21 @@
-import time
 import numpy as np
-from miniccpy.energy import cc_energy
-from miniccpy.utilities import get_memory_usage
 
-def ccsd_t3_correction(T, f, g, H1, H2, o, v):
+def kernel(T, L, f, H1, g, o, v):
+    from miniccpy.energy import cc_energy
 
-    print("   Correcting CCSD T1/T2 and H(vvov)/H(vooo) using Approximate T3")
-    print("   --------------------------------------------------------------")
     t1, t2 = T
     nu, no = t1.shape
+
     # orbital denominators
     eps = np.diagonal(f)
     n = np.newaxis
     e_abc = -eps[v, n, n] - eps[n, v, n] - eps[n, n, v]
     e_abij = 1.0 / (-eps[v, n, n, n] - eps[n, v, n, n] + eps[n, n, o, n] + eps[n, n, n, o])
     e_ai = 1.0 / (-eps[v, n] + eps[n, o])
-    cc_energy_orig = cc_energy(t1, t2, f, g, o, v)
-    # Compute additional CCS-like intermediates
-    # h_ooov = g[o, o, o, v] + np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
-    # h_vovv = g[v, o, v, v] - np.einsum("mnfe,an->amef", g[o, o, v, v], t1, optimize=True) # no(2)nu(3)
-    # h_ov = f[o, v] + np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
 
     # get residual containers for singles and doubles
     singles_res = np.zeros((nu, no))
     doubles_res = np.zeros((nu, nu, no, no))
-
-    tic = time.time()
     # build approximate T3 = <ijkabc|(V*T2)_C|0>/-D_MP(abcijk) in batches of abc
     for i in range(no):
         for j in range(i + 1, no):
@@ -61,38 +51,29 @@ def ccsd_t3_correction(T, f, g, H1, H2, o, v):
                 doubles_res[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, k, :, :], t3_abc, optimize=True)
                 doubles_res[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, i, :, :], t3_abc, optimize=True)
                 doubles_res[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, j, :, :], t3_abc, optimize=True)
-                # Compute diagram: A(i/jk) -g(jkef)*t3(abfijk)
-                H2[v, v, o, v][:, :, i, :] -= 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, k, :, :], t3_abc, optimize=True)
-                H2[v, v, o, v][:, :, j, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][i, k, :, :], t3_abc, optimize=True)
-                H2[v, v, o, v][:, :, k, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, i, :, :], t3_abc, optimize=True)
-                # Compute diagram: A(k/ij) g(:kef)*t3(aefijk)
-                H2[v, o, o, o][:, :, i, j] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, k, :, :], t3_abc, optimize=True)
-                H2[v, o, o, o][:, :, j, k] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, i, :, :], t3_abc, optimize=True)
-                H2[v, o, o, o][:, :, i, k] -= 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, j, :, :], t3_abc, optimize=True)
 
     # Antisymmetrize
     doubles_res -= np.transpose(doubles_res, (1, 0, 2, 3))
     doubles_res -= np.transpose(doubles_res, (0, 1, 3, 2))
-    H2[v, v, o, v] -= np.transpose(H2[v, v, o, v], (1, 0, 2, 3))
-    H2[v, o, o, o] -= np.transpose(H2[v, o, o, o], (0, 1, 3, 2))
     # Manually clear all diagonal elements
     for a in range(nu):
         doubles_res[a, a, :, :] *= 0.0
-        H2[v, v, o, v][a, a, :, :] *= 0.0
     for i in range(no):
         doubles_res[:, :, i, i] *= 0.0
-        H2[v, o, o, o][:, :, i, i] *= 0.0
 
     # update CCSD amplitudes with contributions from T3
-    t1 += singles_res * e_ai
-    t2 += doubles_res * e_abij
+    t1_corr = singles_res * e_ai
+    t2_corr = doubles_res * e_abij
 
-    cc_energy_new = cc_energy(t1, t2, f, g, o, v)
+    # base part
+    delta_A = cc_energy(t1_corr, t2_corr, f, g, o, v)
+    # add in product terms
+    delta_A += 0.5 * np.einsum("mnef,em,fn->", g[o, o, v, v], t1, t1_corr)
+    delta_A += 0.5 * np.einsum("mnef,em,fn->", g[o, o, v, v], t1_corr, t1)
+    delta_B = 0.0
+    delta_C = 0.0
+    delta_D = 0.0
 
-    toc = time.time()
-    minutes, seconds = divmod(toc - tic, 60)
-    print(f"   Original CC Correlation Energy:   {cc_energy_orig}")
-    print(f"   Updated CC Correlation Energy:    {cc_energy_new}")
-    print("   Completed in {:.2f}m {:.2f}s".format(minutes, seconds))
-    print(f"   Memory usage: {get_memory_usage()} MB\n")
-    return (t1, t2), H1, H2
+    # Store triples corrections in dictionary
+    delta_T = {"A": delta_A, "B": delta_B, "C": delta_C, "D": delta_D}
+    return delta_T
