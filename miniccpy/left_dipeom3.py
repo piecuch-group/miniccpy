@@ -11,11 +11,7 @@ def build_LH1(l1, l2, t2, H1, H2, o, v):
     X1 = -np.einsum("im,jm->ij", l1, H1[o, o], optimize=True)
     X1 += 0.25 * np.einsum("mn,ijmn->ij", l1, H2[o, o, o, o], optimize=True)
     X1 -= 0.5 * np.einsum("imfn,fjnm->ij", l2, H2[v, o, o, o], optimize=True)
-    X1 += 0.5 * np.einsum("fm,ijmf->ij", I_vo, H2[o, o, o, v], optimize=True)
-
-    #temp1 = 0.5 * np.einsum("fm,ijmf->ij", I_vo, H2[o, o, o, v], optimize=True)
-    #temp2 = -0.25 * np.einsum("mngo,fgno,ijmf->ij", l2, t2, H2[o, o, o, v], optimize=True)
-    #print(np.linalg.norm(temp1.flatten() - temp2.flatten()))
+    X1 -= 0.5 * np.einsum("fm,ijmf->ij", I_vo, H2[o, o, o, v], optimize=True)
     # antisymmetrize A(ij)
     X1 -= np.transpose(X1, (1, 0))
     return X1
@@ -27,16 +23,12 @@ def build_LH2(l1, l2, t2, H1, H2, o, v):
     I_vo = -0.5 * np.einsum("mngo,fgno->fm", l2, t2, optimize=True)
 
     X2 = -0.5 * np.einsum("im,jkmc->ijck", l1, H2[o, o, o, v], optimize=True)
-    X2 -= 0.5 * np.einsum("ijcm,km->ijck", l2, H1[o, o], optimize=True)
+    X2 -= 0.5 * np.einsum("imck,jm->ijck", l2, H1[o, o], optimize=True)
     X2 += (1.0 / 6.0) * np.einsum("ijek,ec->ijck", l2, H1[v, v], optimize=True)
     X2 += 0.25 * np.einsum("mnck,ijmn->ijck", l2, H2[o, o, o, o], optimize=True)
     X2 += 0.5 * np.einsum("ijem,ekmc->ijck", l2, H2[v, o, o, v], optimize=True)
-    X2 += 0.5 * np.einsum("ej,ikec->ijck", I_vo, H2[o, o, v, v], optimize=True)
     X2 += 0.5 * np.einsum("ij,kc->ijck", l1, H1[o, v], optimize=True)
-
-    #temp1 = 0.5 * np.einsum("ej,ikec->ijck", I_vo, H2[o, o, v, v], optimize=True)
-    #temp2 = -0.25 * np.einsum("jmfn,efmn,ikec->ijck", l2, t2, H2[o, o, v, v], optimize=True)
-    #print(np.linalg.norm(temp1.flatten() - temp2.flatten()))
+    X2 += 0.5 * np.einsum("fi,jkfc->ijck", I_vo, H2[o, o, v, v], optimize=True)
     # antisymmetrize A(ijk)
     X2 -= np.transpose(X2, (0, 3, 2, 1)) # A(jk)
     X2 -= np.transpose(X2, (1, 0, 2, 3)) + np.transpose(X2, (3, 1, 2, 0)) # A(i/jk)

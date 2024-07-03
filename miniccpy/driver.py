@@ -523,7 +523,7 @@ def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method):
     print("")
     return e_correction
 
-def run_dip_correction(T, R, omega, fock, g, H1, H2, o, v, method):
+def run_dip_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
     """Run the DIP correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -535,8 +535,11 @@ def run_dip_correction(T, R, omega, fock, g, H1, H2, o, v, method):
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
 
+    if method == "dipeom4star":
+        L = R
+
     tic = time.time()
-    e_correction = calculation(T, R, omega, fock, g, H1, H2, o, v)
+    e_correction = calculation(T, R, L, omega, fock, g, H1, H2, o, v)
     toc = time.time()
     minutes, seconds = divmod(toc - tic, 60)
 

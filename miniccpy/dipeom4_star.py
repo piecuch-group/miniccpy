@@ -3,7 +3,7 @@ import numpy as np
 from miniccpy.utilities import get_memory_usage
 from miniccpy.lib import dipeom4_star_p
 
-def kernel(T, R, omega, fock, g, H1, H2, o, v):
+def kernel(T, R, L, omega, fock, g, H1, H2, o, v):
     # Compute the noniterative correction to DIP(3h-1p) energies
     t1, t2 = T
     r1, r2 = R

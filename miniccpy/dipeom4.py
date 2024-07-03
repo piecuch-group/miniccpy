@@ -275,9 +275,9 @@ def build_HR3(r1, r2, r3, t1, t2, H1, H2, o, v):
     # 
     X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True) # T2
     X3 -= (4.0 / 48.0) * np.einsum("mi,mjcdkl->ijcdkl", H1[o, o], r3, optimize=True) # T2
-    # X3 += (1.0 / 96.0) * np.einsum("cdef,ijefkl->ijcdkl", H2[v, v, v, v], r3, optimize=True)
-    # X3 += (6.0 / 96.0) * np.einsum("mnij,mncdkl->ijcdkl", H2[o, o, o, o], r3, optimize=True)
-    # X3 += (8.0 / 48.0) * np.einsum("dmle,ijcekm->ijcdkl", H2[v, o, o, v], r3, optimize=True)
+    X3 += (1.0 / 96.0) * np.einsum("cdef,ijefkl->ijcdkl", H2[v, v, v, v], r3, optimize=True)
+    X3 += (6.0 / 96.0) * np.einsum("mnij,mncdkl->ijcdkl", H2[o, o, o, o], r3, optimize=True)
+    X3 += (8.0 / 48.0) * np.einsum("dmle,ijcekm->ijcdkl", H2[v, o, o, v], r3, optimize=True)
     ### Explicit usage of 3-body Hbar ###
     #X3 -= (12.0 / 96.0) * np.einsum("dmnlkf,ijcfmn->ijcdkl", I_voooov, r3, optimize=True)
     #X3 += (4.0 / 96.0) * np.einsum("dcnlef,ijefkn->ijcdkl", I_vvoovv, r3, optimize=True)
