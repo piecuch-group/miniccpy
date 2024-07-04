@@ -1,5 +1,5 @@
 import numpy as np
-from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar, run_lefteomcc_calc, run_dip_correction
+from miniccpy.driver import run_scf, run_cc_calc, run_leftcc_calc, run_guess, run_eomcc_calc, get_hbar, run_lefteomcc_calc, run_dip_correction, run_correction
 
 def test_dipeom3_ch2():
 
@@ -14,6 +14,11 @@ def test_dipeom3_ch2():
 
     T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
     H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
+    L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_ccsd")
+
+    delta = []
+
+    delta.append(run_correction(T, L, fock, H1, H2, o, v, method="crcc23")) 
 
     nroot = 4
     R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
@@ -21,7 +26,7 @@ def test_dipeom3_ch2():
     L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method="left_dipeom3")
 
     for i in range(len(R)):
-        delta = run_dip_correction(T, R[i], R[i], omega[i], fock, g, H1, H2, o, v, method="dipeom34") 
+        delta.append(run_dip_correction(T, R[i], L[i], omega[i], fock, g, H1, H2, o, v, method="dipeom34"))
 
     #
     # Check the results

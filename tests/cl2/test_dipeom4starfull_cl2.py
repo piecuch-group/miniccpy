@@ -13,7 +13,8 @@ def test_dipeom4_cl2():
     fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, symmetry="D2H", unit="Angstrom", cartesian=False, charge=0, x2c=True)
 
     T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
-    H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
+    T, H = get_hbar(T, fock, g, o, v, method='ccsdta')
+    H1, H2 = H
 
     nroot = 10
     R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")

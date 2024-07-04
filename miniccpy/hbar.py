@@ -588,7 +588,7 @@ def build_hbar_ccsdta(T, f, g, o, v):
 
     t1, t2 = T
     nu, no = t1.shape
-    norbitals = no + nu
+    norbitals = f.shape[0]
 
     # orbital denominators
     eps = np.diagonal(f)
@@ -668,8 +668,8 @@ def build_hbar_ccsdta(T, f, g, o, v):
     # compute new CC energy
     cc_energy_new = cc_energy(t1, t2, f, g, o, v)
 
-    print(f"   CCSD Correlation Energy:   {cc_energy_orig}")
-    print(f"   CCSDT(a) Correlation Energy:    {cc_energy_new}")
+    print(f"    CCSD Correlation Energy:   {cc_energy_orig}")
+    print(f"    CCSDT(a) Correlation Energy:    {cc_energy_new}\n")
 
     # Allocate H1 and H2 arrays
     H1 = np.zeros((norbitals, norbitals))
@@ -739,4 +739,4 @@ def build_hbar_ccsdta(T, f, g, o, v):
 
     H2[o, o, v, v] = g[o, o, v, v].copy()
 
-    return (t1, t2), H1, H2
+    return (t1, t2), (H1, H2)
