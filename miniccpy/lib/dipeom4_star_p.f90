@@ -564,7 +564,7 @@ module dipeom4_star_p
                   !$omp do schedule(static)
                   do a=1,nu; do b=a+1,nu;
                   do i=1,no; do j=i+1,no; do k=j+1,no; do l=k+1,no;
-                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_vv(l,l) - h1_vv(a,a) - h1_vv(b,b)
+                     denom = omega + h1_oo(i,i) + h1_oo(j,j) + h1_oo(k,k) + h1_oo(l,l) - h1_vv(a,a) - h1_vv(b,b)
                      
                      res_mm23 = 0.0d0
                      do m = 1,no

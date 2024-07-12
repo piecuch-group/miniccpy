@@ -131,6 +131,19 @@ def LH(l1, l2, l3, t1, t2, H1, H2, o, v):
 
     return np.hstack( [LH1.flatten(), LH2.flatten(), LH3.flatten()] )
 
+def calc_LR(L, R, nocc, nunocc):
+    # unpack L
+    l1 = L[:nunocc]
+    l2 = L[nunocc:nunocc**2 * nocc + nunocc].reshape(nunocc, nunocc, nocc)
+    l3 = L[nunocc + nunocc**2*nocc:].reshape(nunocc, nunocc, nunocc, nocc, nocc)
+    # unpack R
+    r1, r2, r3 = R
+    # compute LR
+    LR = np.einsum("a,a->", l1, r1, optimize=True)
+    LR += (1.0 / 2.0) * np.einsum("abj,abj->", l2, r2, optimize=True)
+    LR += (1.0 / 12.0) * np.einsum("abcjk,abcjk->", l3, r3, optimize=True)
+    return LR
+
 def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
@@ -242,6 +255,9 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
     else:
         print("Left-EAEOMCC(3p-2h) iterations did not converge")
 
+    # Normalize <L|R> = 1
+    LR = calc_LR(L, R, nocc, nunocc)
+    L /= LR
     # Save the final converged root in an excitation tuple
     L = (L[:n1].reshape(nunocc), L[n1:n1+n2].reshape(nunocc, nunocc, nocc), L[n1+n2:].reshape(nunocc, nunocc, nunocc, nocc, nocc))
 

@@ -94,6 +94,19 @@ def LH(l1, l2, l3, t1, t2, H1, H2, o, v):
     LH3 = build_LH3(l1, l2, l3, H1, H2, X, o, v)
     return np.hstack( [LH1.flatten(), LH2.flatten(), LH3.flatten()] )
 
+def calc_LR(L, R, nocc, nunocc):
+    # unpack L
+    l1 = L[:nocc]
+    l2 = L[nocc:nocc**2 * nunocc + nocc].reshape(nocc, nunocc, nocc)
+    l3 = L[nocc + nocc**2*nunocc:].reshape(nocc, nunocc, nunocc, nocc, nocc)
+    # unpack R
+    r1, r2, r3 = R
+    # compute LR
+    LR = np.einsum("i,i->", l1, r1, optimize=True)
+    LR += (1.0 / 2.0) * np.einsum("ibj,ibj->", l2, r2, optimize=True)
+    LR += (1.0 / 12.0) * np.einsum("ibcjk,ibcjk->", l3, r3, optimize=True)
+    return LR
+
 def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20, nrest=1):
     """
     Diagonalize the similarity-transformed CCSD Hamiltonian using the
@@ -205,6 +218,9 @@ def kernel(R, T, omega, H1, H2, o, v, maxit=80, convergence=1.0e-07, max_size=20
     else:
         print("Left-IPEOMCC(3h-2p) iterations did not converge")
 
+    # Normalize <L|R> = 1
+    LR = calc_LR(L, R, nocc, nunocc)
+    L /= LR
     # Save the final converged root in an excitation tuple
     L = (L[:n1].reshape(nocc), L[n1:n1+n2].reshape(nocc, nunocc, nocc), L[n1+n2:].reshape(nocc, nunocc, nunocc, nocc, nocc))
 
