@@ -535,9 +535,6 @@ def run_dip_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
 
-    if method == "dipeom4star":
-        L = R
-
     tic = time.time()
     e_correction = calculation(T, R, L, omega, fock, g, H1, H2, o, v)
     toc = time.time()

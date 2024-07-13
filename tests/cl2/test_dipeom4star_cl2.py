@@ -15,17 +15,14 @@ def test_dipeom4_cl2():
     T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
     T, H = get_hbar(T, fock, g, o, v, method='ccsdta')
     H1, H2 = H
-    #H1, H2 = get_hbar(T, fock, g, o, v, method='ccsd')
 
     nroot = 10
     R, omega_guess = run_guess(H1, H2, o, v, nroot, method="dipcis")
-    # Set up the list of 4h2p excitations corresponding to the active-space DIP-EOMCCSD(4h-2p){No} method
-    no, nu = fock[o, v].shape
-    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom3", state_index=[3])
-    L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method="left_dipeom3")
+    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom3", state_index=[0, 3, 5, 6], max_size=80)
+    #L, omega = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method="left_dipeom3")
     for i in range(len(R)):
-        #delta_star = run_dip_correction(T, R[i], None, omega[i], fock, g, H1, H2, o, v, method="dipeom4_star")
-        delta_star = run_dip_correction(T, R[i], L[i], omega[i], fock, g, H1, H2, o, v, method="dipeom34")
+        delta_star = run_dip_correction(T, R[i], None, omega[i], fock, g, H1, H2, o, v, method="dipeom4_star")
+        #delta_star = run_dip_correction(T, R[i], L[i], omega[i], fock, g, H1, H2, o, v, method="dipeom34")
 
 if __name__ == "__main__":
     test_dipeom4_cl2()
