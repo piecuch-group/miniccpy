@@ -51,8 +51,8 @@ def LH(l1, l2, t1, t2, H1, H2, o, v):
 
 def calc_LR(L, R, nocc, nunocc):
     # unpack L
-    l1 = L[:n1].reshape(nunocc)
-    l2 = L[n1:].reshape(nunocc, nunocc, nocc)
+    l1 = L[:nunocc].reshape(nunocc)
+    l2 = L[nunocc:].reshape(nunocc, nunocc, nocc)
     # unpack R
     r1, r2 = R
     # compute LR
