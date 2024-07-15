@@ -9,11 +9,11 @@ def kernel(T, R, L, omega, fock, g, H1, H2, o, v):
     delta = {"A": deltaA, "B": 0.0, "C": 0.0, "D": 0.0}
     return delta
 
-def build_HR_intermediates(r1, r2, t1, t2, I_oooo, I_voov, o, v):
+def build_HR_intermediates(r1, r2, t1, t2, g, o, v):
     # X(ijmk) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
     X_oooo = (
           # (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", g[o, o, o, v], r2, optimize=True) # includes T1
-        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", I_oooo, r1, optimize=True) # includes T1 and T2
+        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", g[o, o, o, o], r1, optimize=True) # includes T1 and T2
     )
     # antisymmetrize A(ijk)
     X_oooo -= np.transpose(X_oooo, (0, 3, 2, 1)) # A(jk)
@@ -22,7 +22,7 @@ def build_HR_intermediates(r1, r2, t1, t2, I_oooo, I_voov, o, v):
     # I(ijce) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
     X_oovv = (
         # (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", g[v, o, v, v], r2, optimize=True) # includes T1
-        + np.einsum("bmje,mk->jkbe", I_voov, r1, optimize=True) # includes T1 and T2
+        + np.einsum("bmje,mk->jkbe", g[v, o, o, v], r1, optimize=True) # includes T1 and T2
         # + 0.5 * np.einsum("nmie,njcm->ijce", g[o, o, o, v], r2, optimize=True) # includes T1
     )
     # antisymmetrize A(ij)
@@ -49,26 +49,7 @@ def calc_dipeom4star(r1, r2, t1, t2, fock, g, omega, H1, H2, o, v):
         resulting terms include (H[2]*R1)_C + (H[1]*R2)_C + (F_N*R3)_C.
     """
 
-    ###
-    # Remove T1 contributions from h1(ov), h2(voov), h2(oooo)
-    ###
-    # I_ov = H1[o, v] - np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
-
-    Q1 = -np.einsum("mnfe,an->amef", g[o, o, v, v], t1, optimize=True)
-    I_vovv = g[v, o, v, v] + 0.5 * Q1
-
-    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
-    I_ooov = g[o, o, o, v] + 0.5 * Q1
-
-    Q1 = +np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
-    Q1 -= np.transpose(Q1, (0, 1, 3, 2))
-    I_oooo = H2[o, o, o, o] - Q1
-
-    I_voov = (H2[v, o, o, v]
-              - np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
-              + np.einsum("nmie,an->amie", I_ooov, t1, optimize=True))
-
-    X_oooo, X_oovv = build_HR_intermediates(r1, r2, t1, t2, I_oooo, I_voov, o, v)
+    X_oooo, X_oovv = build_HR_intermediates(r1, r2, t1, t2, g, o, v)
 
     delta_star = dipeom4_star_p.dipeom4_star_p.build_hr4_p_noniterative(
             t2, r2, omega,

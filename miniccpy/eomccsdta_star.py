@@ -10,6 +10,9 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
     triple excitations", arXiV preprint [https://doi.org/10.48550/arXiv.2406.05595] provides the
     EOMCCSD* equations directly in Eqs. (11)-(13). Here, I am assuming that the EOMCCSD(T)a* formulas
     are analogous to EOMCCSD*, except that the CCSD(T)(a) HBar is used instead of CCSD.
+    L3 = < 0 | (V_N*L1)_DC + (V_N*L2)_C | ijkabc >
+    M3 = < ijkabc | (V_N*R2)_C + (V_N*T2*R1)_C | 0 >
+    delta = < 0 | L3*M3 | 0 >`
     '''
 
     t1, t2 = T
@@ -23,84 +26,31 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
     # e_abcijk = (eps[v, n, n, n, n, n] + eps[n, v, n, n, n, n] + eps[n, n, v, n, n, n]
     #            - eps[n, n, n, o, n, n] - eps[n, n, n, n, o, n] - eps[n, n, n, n, n, o])
 
-    # build approximate T3 = <ijkabc|(V*T2)_C|0>/-D_MP(abcijk)
-    # t3 = -0.25 * np.einsum("amij,bcmk->abcijk", g[v, o, o, o], t2, optimize=True)
-    # t3 += 0.25 * np.einsum("abie,ecjk->abcijk", g[v, v, o, v], t2, optimize=True)
-    # t3 -= np.transpose(t3, (0, 1, 2, 3, 5, 4)) # (jk)
-    # t3 -= np.transpose(t3, (0, 1, 2, 4, 3, 5)) + np.transpose(t3, (0, 1, 2, 5, 4, 3)) # (i/jk)
-    # t3 -= np.transpose(t3, (0, 2, 1, 3, 4, 5)) # (bc)
-    # t3 -= np.transpose(t3, (2, 1, 0, 3, 4, 5)) + np.transpose(t3, (1, 0, 2, 3, 4, 5)) # (a/bc)
-    # t3 /= -e_abcijk
-
-    ###
-    # Remove T1 contributions from h1(ov), h2(voov), h2(oooo), h2(vvvv)
-    ###
-    # I_ov = H1[o, v] - np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
-
-    Q1 = -np.einsum("mnfe,an->amef", g[o, o, v, v], t1, optimize=True)
-    I_vovv = g[v, o, v, v] + 0.5 * Q1
-
-    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
-    I_ooov = g[o, o, o, v] + 0.5 * Q1
-
-    Q1 = -np.einsum("bmfe,am->abef", I_vovv, t1, optimize=True)
-    Q1 -= np.transpose(Q1, (1, 0, 2, 3))
-    I_vvvv = H2[v, v, v, v] - Q1
-
-    Q1 = +np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
-    Q1 -= np.transpose(Q1, (0, 1, 3, 2))
-    I_oooo = H2[o, o, o, o] - Q1
-
-    I_voov = (H2[v, o, o, v]
-              - np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
-              + np.einsum("nmie,an->amie", I_ooov, t1, optimize=True))
-
     # Intermediates
     # X_ov = np.einsum("mnef,fn->me", H2[o, o, v, v], r1, optimize=True) # 1st order
 
     X_vvov =(
-        np.einsum("amje,bm->baje", I_voov, r1, optimize=True) # 2+0 = 2nd order
+        np.einsum("amje,bm->baje", g[v, o, o, v], r1, optimize=True) # 2+0 = 2nd order
         # + np.einsum("amfe,bejm->bajf", g[v, o, v, v], r2, optimize=True) # 2+1 = 3rd order
-        + 0.5 * np.einsum("abfe,ej->bajf", I_vvvv, r1, optimize=True)
+        + 0.5 * np.einsum("abfe,ej->bajf", g[v, v, v, v], r1, optimize=True)
         # + 0.25 * np.einsum("nmje,abmn->baje", g[o, o, o, v], r2, optimize=True)
         # - 0.5 * np.einsum("me,abmj->baje", X_ov, t2, optimize=True)
     )
     X_vvov -= np.transpose(X_vvov, (1, 0, 2, 3))
 
     X_vooo = (
-        -np.einsum("bmie,ej->bmji", I_voov, r1, optimize=True)
+        -np.einsum("bmie,ej->bmji", g[v, o, o, v], r1, optimize=True)
         # +np.einsum("nmie,bejm->bnji", g[o, o, o, v], r2, optimize=True)
-        - 0.5 * np.einsum("nmij,bm->bnji", I_oooo, r1, optimize=True)
+        - 0.5 * np.einsum("nmij,bm->bnji", g[o, o, o, o], r1, optimize=True)
         # + 0.25 * np.einsum("bmfe,efij->bmji", g[v, o, v, v], r2, optimize=True)
     )
     X_vooo -= np.transpose(X_vooo, (0, 1, 3, 2))
-
-    # additional intermediates that contract with the T3 parts in H_{TS}
-    # X_oo = np.einsum("mnif,fn->mi", g[o, o, o, v], r1, optimize=True)
-    #
-    # X_vv = np.einsum("anef,fn->ae", g[v, o, v, v], r1, optimize=True)
-    #
-    # X_voov = (np.einsum("amfe,fi->amie", g[v, o, v, v], r1, optimize=True)
-    #           -np.einsum("nmie,an->amie", g[o, o, o, v], r1, optimize=True)
-    # )
-    #
-    # X_oooo = np.einsum("mnif,fj->mnij", g[o, o, o, v], r1, optimize=True)
-    # X_oooo -= np.transpose(X_oooo, (0, 1, 3, 2))
-    #
-    # X_vvvv = -np.einsum("anef,bn->abef", g[v, o, v, v], r1, optimize=True)
-    # X_vvvv -= np.transpose(X_vvvv, (1, 0, 2, 3))
 
     # # Excited-state moment
     # M3 = 0.25 * np.einsum("baje,ecik->abcijk", X_vvov, t2, optimize=True)
     # M3 += 0.25 * np.einsum("baje,ecik->abcijk", g[v, v, o, v], r2, optimize=True)
     # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", X_vooo, t2, optimize=True)
     # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", g[v, o, o, o], r2, optimize=True)
-    # #
-    # # M3 -= (1.0 / 12.0) * np.einsum("mk,abcijm->abcijk", X_oo, t3, optimize=True)
-    # # M3 += (1.0 / 12.0) * np.einsum("ce,abeijk->abcijk", X_vv, t3, optimize=True)
-    # # M3 += (1.0 / 24.0) * np.einsum("mnij,abcmnk->abcijk", X_oooo, t3, optimize=True)
-    # # M3 += (1.0 / 24.0) * np.einsum("abef,efcijk->abcijk", X_vvvv, t3, optimize=True)
-    # # M3 += 0.25 * np.einsum("cmke,abeijm->abcijk", X_voov, t3, optimize=True)
     # M3 -= np.transpose(M3, (0, 1, 2, 3, 5, 4)) # (jk)
     # M3 -= np.transpose(M3, (0, 1, 2, 4, 3, 5)) + np.transpose(M3, (0, 1, 2, 5, 4, 3)) # (i/jk)
     # M3 -= np.transpose(M3, (0, 2, 1, 3, 4, 5)) # (bc)
