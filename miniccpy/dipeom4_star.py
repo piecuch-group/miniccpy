@@ -1,6 +1,4 @@
-import time
 import numpy as np
-from miniccpy.utilities import get_memory_usage
 from miniccpy.lib import dipeom4_star_p
 
 def kernel(T, R, L, omega, fock, g, H1, H2, o, v):
@@ -11,38 +9,38 @@ def kernel(T, R, L, omega, fock, g, H1, H2, o, v):
     delta = {"A": deltaA, "B": 0.0, "C": 0.0, "D": 0.0}
     return delta
 
-def build_HR_intermediates(r1, r2, t1, t2, H1, H2, o, v):
-    # I(ijmk)
-    I_oooo = (
-          (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", H2[o, o, o, v], r2, optimize=True) # includes T1
-        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", H2[o, o, o, o], r1, optimize=True) # includes T1 and T2
+def build_HR_intermediates(r1, r2, t1, t2, I_oooo, I_voov, o, v):
+    # X(ijmk) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
+    X_oooo = (
+          # (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", g[o, o, o, v], r2, optimize=True) # includes T1
+        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", I_oooo, r1, optimize=True) # includes T1 and T2
     )
     # antisymmetrize A(ijk)
-    I_oooo -= np.transpose(I_oooo, (0, 3, 2, 1)) # A(jk)
-    I_oooo -= np.transpose(I_oooo, (1, 0, 2, 3)) + np.transpose(I_oooo, (3, 1, 2, 0)) # A(i/jk)
+    X_oooo -= np.transpose(X_oooo, (0, 3, 2, 1)) # A(jk)
+    X_oooo -= np.transpose(X_oooo, (1, 0, 2, 3)) + np.transpose(X_oooo, (3, 1, 2, 0)) # A(i/jk)
 
-    # I(ijce)
-    I_oovv = (
-        (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", H2[v, o, v, v], r2, optimize=True) # includes T1
-        + np.einsum("bmje,mk->jkbe", H2[v, o, o, v], r1, optimize=True) # includes T1 and T2
-        + 0.5 * np.einsum("nmie,njcm->ijce", H2[o, o, o, v], r2, optimize=True) # includes T1
+    # I(ijce) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
+    X_oovv = (
+        # (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", g[v, o, v, v], r2, optimize=True) # includes T1
+        + np.einsum("bmje,mk->jkbe", I_voov, r1, optimize=True) # includes T1 and T2
+        # + 0.5 * np.einsum("nmie,njcm->ijce", g[o, o, o, v], r2, optimize=True) # includes T1
     )
     # antisymmetrize A(ij)
-    I_oovv -= np.transpose(I_oovv, (1, 0, 2, 3))
-    return I_oooo, I_oovv
+    X_oovv -= np.transpose(X_oovv, (1, 0, 2, 3))
+    return X_oooo, X_oovv
 
-def build_HR3(r2, t2, g, I_oooo, I_oovv, o, v): 
-    # Moment-like terms
-    X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", g[v, v, o, v], r2, optimize=True) # T2
-    X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", g[v, o, o, o], r2, optimize=True) # T2
-    X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
-    X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
-    # antisymmetrize A(ijkl)A(cd)
-    X3 -= np.transpose(X3, (0, 1, 3, 2, 4, 5)) # A(cd)
-    X3 -= np.transpose(X3, (0, 4, 2, 3, 1, 5)) # A(jk)
-    X3 -= np.transpose(X3, (1, 0, 2, 3, 4, 5)) + np.transpose(X3, (4, 1, 2, 3, 0, 5)) # A(i/jk)
-    X3 -= np.transpose(X3, (5, 1, 2, 3, 4, 0)) + np.transpose(X3, (0, 5, 2, 3, 4, 1)) + np.transpose(X3, (0, 1, 2, 3, 5, 4)) # A(l/ijk)
-    return X3
+# def build_HR3(r2, t2, g, I_oooo, I_oovv, o, v):
+#     # Moment-like terms
+#     X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", g[v, v, o, v], r2, optimize=True) # T2
+#     X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", g[v, o, o, o], r2, optimize=True) # T2
+#     X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
+#     X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
+#     # antisymmetrize A(ijkl)A(cd)
+#     X3 -= np.transpose(X3, (0, 1, 3, 2, 4, 5)) # A(cd)
+#     X3 -= np.transpose(X3, (0, 4, 2, 3, 1, 5)) # A(jk)
+#     X3 -= np.transpose(X3, (1, 0, 2, 3, 4, 5)) + np.transpose(X3, (4, 1, 2, 3, 0, 5)) # A(i/jk)
+#     X3 -= np.transpose(X3, (5, 1, 2, 3, 4, 0)) + np.transpose(X3, (0, 5, 2, 3, 4, 1)) + np.transpose(X3, (0, 1, 2, 3, 5, 4)) # A(l/ijk)
+#     return X3
 
 def calc_dipeom4star(r1, r2, t1, t2, fock, g, omega, H1, H2, o, v):
     """Compute the projection of HR on 4h-2p excitations
@@ -51,12 +49,31 @@ def calc_dipeom4star(r1, r2, t1, t2, fock, g, omega, H1, H2, o, v):
         resulting terms include (H[2]*R1)_C + (H[1]*R2)_C + (F_N*R3)_C.
     """
 
-    I_oooo, I_oovv = build_HR_intermediates(r1, r2, t1, t2, H1, H2, o, v)
+    ###
+    # Remove T1 contributions from h1(ov), h2(voov), h2(oooo)
+    ###
+    # I_ov = H1[o, v] - np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)
+
+    Q1 = -np.einsum("mnfe,an->amef", g[o, o, v, v], t1, optimize=True)
+    I_vovv = g[v, o, v, v] + 0.5 * Q1
+
+    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
+    I_ooov = g[o, o, o, v] + 0.5 * Q1
+
+    Q1 = +np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
+    Q1 -= np.transpose(Q1, (0, 1, 3, 2))
+    I_oooo = H2[o, o, o, o] - Q1
+
+    I_voov = (H2[v, o, o, v]
+              - np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
+              + np.einsum("nmie,an->amie", I_ooov, t1, optimize=True))
+
+    X_oooo, X_oovv = build_HR_intermediates(r1, r2, t1, t2, I_oooo, I_voov, o, v)
 
     delta_star = dipeom4_star_p.dipeom4_star_p.build_hr4_p_noniterative(
             t2, r2, omega,
             fock[o, o], fock[v, v],
-            g[v, v, o, v], g[v, o, o, o], I_oooo, I_oovv,
+            g[v, v, o, v], g[v, o, o, o], X_oooo, X_oovv,
     )
     # Divide correction by norm of R vector as a mimic to <L|R> = 1
     rnorm = 0.5 * np.einsum("ij,ij->", r1, r1, optimize=True)

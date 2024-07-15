@@ -21,7 +21,9 @@ def test_dipeom4_cl2():
     no, nu = fock[o, v].shape
     # Here, we are using 14 active occupied spinorbitals, which corresponds to full DIP-EOMCCSD(4h-2p)
     r3_excitations = get_active_4h2p_pspace(no, nu, nacto=14)
-    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_star_p", state_index=[0, 1, 2, 3, 4, 5, 6], out_of_core=True, r3_excitations=r3_excitations, fock=fock, g=g)
+    R, omega, r0 = run_eomcc_calc(R, omega_guess, T, H1, H2, o, v, method="dipeom4_p",
+                                  state_index=[0, 3, 5, 6], r3_excitations=r3_excitations,
+                                  max_size=80, out_of_core=True)
 
 if __name__ == "__main__":
     test_dipeom4_cl2()

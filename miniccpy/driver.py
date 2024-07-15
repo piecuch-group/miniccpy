@@ -497,7 +497,7 @@ def run_correction(T, L, fock, H1, H2, o, v, method):
     print("")
     return e_correction
 
-def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method): 
+def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method, g=None):
     """Run the excited-state EOMCC correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -510,7 +510,10 @@ def run_eom_correction(T, R, L, r0, omega, fock, H1, H2, o, v, method):
     calculation = getattr(mod, 'kernel')
 
     tic = time.time()
-    e_correction = calculation(T, R, L, r0, omega, fock, H1, H2, o, v)
+    if method == "eomccsdta_star":
+        e_correction = calculation(T, R, L, r0, omega, fock, g, H1, H2, o, v)
+    else:
+        e_correction = calculation(T, R, L, r0, omega, fock, H1, H2, o, v)
     toc = time.time()
     minutes, seconds = divmod(toc - tic, 60)
 
