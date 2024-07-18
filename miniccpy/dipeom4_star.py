@@ -12,8 +12,8 @@ def kernel(T, R, L, omega, fock, g, H1, H2, o, v):
 def build_HR_intermediates(r1, r2, t1, t2, g, o, v):
     # X(ijmk) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
     X_oooo = (
-          # (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", g[o, o, o, v], r2, optimize=True) # includes T1
-        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", g[o, o, o, o], r1, optimize=True) # includes T1 and T2
+          # (3.0 / 6.0) * np.einsum("nmke,ijem->ijnk", g[o, o, o, v], r2, optimize=True) # 1+1 = 2nd order
+        - (3.0 / 6.0) * np.einsum("mnik,mj->ijnk", g[o, o, o, o], r1, optimize=True)     # 1+0 = 1st order
     )
     # antisymmetrize A(ijk)
     X_oooo -= np.transpose(X_oooo, (0, 3, 2, 1)) # A(jk)
@@ -21,26 +21,26 @@ def build_HR_intermediates(r1, r2, t1, t2, g, o, v):
 
     # I(ijce) - remove contractions with R2 [in analogy to EE-EOMCCSD(T)a*]
     X_oovv = (
-        # (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", g[v, o, v, v], r2, optimize=True) # includes T1
-        + np.einsum("bmje,mk->jkbe", g[v, o, o, v], r1, optimize=True) # includes T1 and T2
-        # + 0.5 * np.einsum("nmie,njcm->ijce", g[o, o, o, v], r2, optimize=True) # includes T1
+        # (1.0 / 2.0) * np.einsum("cmfe,ijem->ijcf", g[v, o, v, v], r2, optimize=True) # 1+1 = 2nd order
+        + np.einsum("bmje,mk->jkbe", g[v, o, o, v], r1, optimize=True)                 # 1+0 = 1st order
+        # + 0.5 * np.einsum("nmie,njcm->ijce", g[o, o, o, v], r2, optimize=True)       # 1+1 = 2nd order
     )
     # antisymmetrize A(ij)
     X_oovv -= np.transpose(X_oovv, (1, 0, 2, 3))
     return X_oooo, X_oovv
 
-# def build_HR3(r2, t2, g, I_oooo, I_oovv, o, v):
-#     # Moment-like terms
-#     X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", g[v, v, o, v], r2, optimize=True) # T2
-#     X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", g[v, o, o, o], r2, optimize=True) # T2
-#     X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
-#     X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
-#     # antisymmetrize A(ijkl)A(cd)
-#     X3 -= np.transpose(X3, (0, 1, 3, 2, 4, 5)) # A(cd)
-#     X3 -= np.transpose(X3, (0, 4, 2, 3, 1, 5)) # A(jk)
-#     X3 -= np.transpose(X3, (1, 0, 2, 3, 4, 5)) + np.transpose(X3, (4, 1, 2, 3, 0, 5)) # A(i/jk)
-#     X3 -= np.transpose(X3, (5, 1, 2, 3, 4, 0)) + np.transpose(X3, (0, 5, 2, 3, 4, 1)) + np.transpose(X3, (0, 1, 2, 3, 5, 4)) # A(l/ijk)
-#     return X3
+def build_HR3(r2, t2, g, I_oooo, I_oovv, o, v):
+    # Moment-like terms
+    X3 = (4.0 / 48.0) * np.einsum("dcle,ijek->ijcdkl", g[v, v, o, v], r2, optimize=True) # T2
+    X3 -= (12.0 / 48.0) * np.einsum("dmlk,ijcm->ijcdkl", g[v, o, o, o], r2, optimize=True) # T2
+    X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
+    X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
+    # antisymmetrize A(ijkl)A(cd)
+    X3 -= np.transpose(X3, (0, 1, 3, 2, 4, 5)) # A(cd)
+    X3 -= np.transpose(X3, (0, 4, 2, 3, 1, 5)) # A(jk)
+    X3 -= np.transpose(X3, (1, 0, 2, 3, 4, 5)) + np.transpose(X3, (4, 1, 2, 3, 0, 5)) # A(i/jk)
+    X3 -= np.transpose(X3, (5, 1, 2, 3, 4, 0)) + np.transpose(X3, (0, 5, 2, 3, 4, 1)) + np.transpose(X3, (0, 1, 2, 3, 5, 4)) # A(l/ijk)
+    return X3
 
 def calc_dipeom4star(r1, r2, t1, t2, fock, g, omega, H1, H2, o, v):
     """Compute the projection of HR on 4h-2p excitations

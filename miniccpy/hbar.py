@@ -603,6 +603,9 @@ def build_hbar_ccsdta(T, f, g, o, v):
     # get residual containers for singles and doubles
     singles_res = np.zeros((nu, no))
     doubles_res = np.zeros((nu, nu, no, no))
+    # the parts with H3 should be updated here, since T3[2] = (V_N*T2)_C / D, where T2 is CCSD T2, not the updated kind
+    h_t3_vvov = np.zeros((nu, nu, no, nu))
+    h_t3_vooo = np.zeros((nu, no, no, no))
     # build approximate T3 = <ijkabc|(V*T2)_C|0>/-D_MP(abcijk) in batches of abc
     for i in range(no):
         for j in range(i + 1, no):
@@ -638,14 +641,26 @@ def build_hbar_ccsdta(T, f, g, o, v):
                 doubles_res[:, :, i, j] += 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, k, :, :], t3_abc, optimize=True)
                 doubles_res[:, :, j, k] += 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, i, :, :], t3_abc, optimize=True)
                 doubles_res[:, :, i, k] -= 0.5 * np.einsum("aef,ebf->ab", g[v, o, v, v][:, j, :, :], t3_abc, optimize=True)
+                # Compute diagram: A(i/jk) -g(jkef)*t3(abfijk)
+                h_t3_vvov[:, :, i, :] -= 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, k, :, :], t3_abc, optimize=True)
+                h_t3_vvov[:, :, j, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][i, k, :, :], t3_abc, optimize=True)
+                h_t3_vvov[:, :, k, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, i, :, :], t3_abc, optimize=True)
+                # Compute diagram: A(k/ij) g(:kef)*t3(aefijk)
+                h_t3_vooo[:, :, i, j] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, k, :, :], t3_abc, optimize=True)
+                h_t3_vooo[:, :, j, k] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, i, :, :], t3_abc, optimize=True)
+                h_t3_vooo[:, :, i, k] -= 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, j, :, :], t3_abc, optimize=True)
     # Antisymmetrize
     doubles_res -= np.transpose(doubles_res, (1, 0, 2, 3))
     doubles_res -= np.transpose(doubles_res, (0, 1, 3, 2))
+    h_t3_vvov -= np.transpose(h_t3_vvov, (1, 0, 2, 3))
+    h_t3_vooo -= np.transpose(h_t3_vooo, (0, 1, 3, 2))
     # Manually clear all diagonal elements
     for a in range(nu):
         doubles_res[a, a, :, :] *= 0.0
+        h_t3_vvov[a, a, :, :] *= 0.0
     for i in range(no):
         doubles_res[:, :, i, i] *= 0.0
+        h_t3_vooo[:, :, i, i] *= 0.0
 
     # update CCSD amplitudes with contributions from T3
     t1 += singles_res * e_ai
@@ -660,45 +675,6 @@ def build_hbar_ccsdta(T, f, g, o, v):
     # Allocate H1 and H2 arrays
     H1 = np.zeros((norbitals, norbitals))
     H2 = np.zeros((norbitals, norbitals, norbitals, norbitals))
-    
-    # Now that T1/T2 are updated, compute the additional T3 contribution to h(vooo) and h(vvov)
-    h_t3_vvov = np.zeros((nu, nu, no, nu))
-    h_t3_vooo = np.zeros((nu, no, no, no))
-    # build approximate T3 = <ijkabc|(V*T2)_C|0>/-D_MP(abcijk) in batches of abc
-    for i in range(no):
-        for j in range(i + 1, no):
-            for k in range(j + 1, no):
-                # fock denominator for occupied
-                denom_occ = f[o, o][i, i] + f[o, o][j, j] + f[o, o][k, k]
-                # -1/2 A(k/ij)A(abc) I(amij) * t(bcmk)
-                t3_abc = -0.5 * np.einsum("am,bcm->abc", g[v, o, o, o][:, :, i, j], t2[:, :, :, k], optimize=True)
-                t3_abc += 0.5 * np.einsum("am,bcm->abc", g[v, o, o, o][:, :, k, j], t2[:, :, :, i], optimize=True)
-                t3_abc += 0.5 * np.einsum("am,bcm->abc", g[v, o, o, o][:, :, i, k], t2[:, :, :, j], optimize=True)
-                # 1/2 A(i/jk)A(abc) I(abie) * t(ecjk)
-                t3_abc += 0.5 * np.einsum("abe,ec->abc", g[v, v, o, v][:, :, i, :], t2[:, :, j, k], optimize=True)
-                t3_abc -= 0.5 * np.einsum("abe,ec->abc", g[v, v, o, v][:, :, j, :], t2[:, :, i, k], optimize=True)
-                t3_abc -= 0.5 * np.einsum("abe,ec->abc", g[v, v, o, v][:, :, k, :], t2[:, :, j, i], optimize=True)
-                # Antisymmetrize A(abc)
-                t3_abc -= np.transpose(t3_abc, (1, 0, 2)) + np.transpose(t3_abc, (2, 1, 0)) # A(a/bc)
-                t3_abc -= np.transpose(t3_abc, (0, 2, 1)) # A(bc)
-                # Divide t_abc by the denominator
-                t3_abc /= (denom_occ + e_abc)
-                # Compute diagram: A(i/jk) -g(jkef)*t3(abfijk)
-                h_t3_vvov[:, :, i, :] -= 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, k, :, :], t3_abc, optimize=True)
-                h_t3_vvov[:, :, j, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][i, k, :, :], t3_abc, optimize=True)
-                h_t3_vvov[:, :, k, :] += 0.5 * np.einsum("ef,abf->abe", g[o, o, v, v][j, i, :, :], t3_abc, optimize=True)
-                # Compute diagram: A(k/ij) g(:kef)*t3(aefijk)
-                h_t3_vooo[:, :, i, j] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, k, :, :], t3_abc, optimize=True)
-                h_t3_vooo[:, :, j, k] += 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, i, :, :], t3_abc, optimize=True)
-                h_t3_vooo[:, :, i, k] -= 0.5 * np.einsum("mef,aef->am", g[o, o, v, v][:, j, :, :], t3_abc, optimize=True)
-    # Antisymmetrize
-    h_t3_vvov -= np.transpose(h_t3_vvov, (1, 0, 2, 3))
-    h_t3_vooo -= np.transpose(h_t3_vooo, (0, 1, 3, 2))
-    # Manually clear all diagonal elements
-    for a in range(nu):
-        h_t3_vvov[a, a, :, :] *= 0.0
-    for i in range(no):
-        h_t3_vooo[:, :, i, i] *= 0.0
 
     # 1-body components
     H1[o, v] = f[o, v] + np.einsum("imae,em->ia", g[o, o, v, v], t1, optimize=True)

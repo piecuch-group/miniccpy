@@ -17,7 +17,11 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
 
     t1, t2 = T
     r1, r2 = R
-    l1, l2 = L
+    if L is None:
+        l1 = None
+        l2 = None
+    else:
+        l1, l2 = L
     # orbital dimensions
     nu, no = t1.shape
     # # MP denominator
@@ -27,30 +31,30 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
     #            - eps[n, n, n, o, n, n] - eps[n, n, n, n, o, n] - eps[n, n, n, n, n, o])
 
     # Intermediates
-    # X_ov = np.einsum("mnef,fn->me", H2[o, o, v, v], r1, optimize=True) # 1st order
+    # X_ov = np.einsum("mnef,fn->me", H2[o, o, v, v], r1, optimize=True) # 1+0 = 1st order
 
     X_vvov =(
-        np.einsum("amje,bm->baje", g[v, o, o, v], r1, optimize=True) # 2+0 = 2nd order
-        # + np.einsum("amfe,bejm->bajf", g[v, o, v, v], r2, optimize=True) # 2+1 = 3rd order
-        + 0.5 * np.einsum("abfe,ej->bajf", g[v, v, v, v], r1, optimize=True)
-        # + 0.25 * np.einsum("nmje,abmn->baje", g[o, o, o, v], r2, optimize=True)
-        # - 0.5 * np.einsum("me,abmj->baje", X_ov, t2, optimize=True)
+        np.einsum("amje,bm->baje", g[v, o, o, v], r1, optimize=True)              # 1+0 = 1st order
+        # + np.einsum("amfe,bejm->bajf", g[v, o, v, v], r2, optimize=True)        # 1+1 = 2rd order
+        + 0.5 * np.einsum("abfe,ej->bajf", g[v, v, v, v], r1, optimize=True)      # 1+0 = 1st order
+        # + 0.25 * np.einsum("nmje,abmn->baje", g[o, o, o, v], r2, optimize=True) # 1+1 = 2nd order
+        # - 0.5 * np.einsum("me,abmj->baje", X_ov, t2, optimize=True)             # 1+1 = 2nd order
     )
     X_vvov -= np.transpose(X_vvov, (1, 0, 2, 3))
 
     X_vooo = (
-        -np.einsum("bmie,ej->bmji", g[v, o, o, v], r1, optimize=True)
-        # +np.einsum("nmie,bejm->bnji", g[o, o, o, v], r2, optimize=True)
-        - 0.5 * np.einsum("nmij,bm->bnji", g[o, o, o, o], r1, optimize=True)
-        # + 0.25 * np.einsum("bmfe,efij->bmji", g[v, o, v, v], r2, optimize=True)
+        -np.einsum("bmie,ej->bmji", g[v, o, o, v], r1, optimize=True)             # 1+0 = 1st order
+        # +np.einsum("nmie,bejm->bnji", g[o, o, o, v], r2, optimize=True)         # 1+1 = 2nd order
+        - 0.5 * np.einsum("nmij,bm->bnji", g[o, o, o, o], r1, optimize=True)      # 1+0 = 1st order
+        # + 0.25 * np.einsum("bmfe,efij->bmji", g[v, o, v, v], r2, optimize=True) # 1+1 = 2nd order
     )
     X_vooo -= np.transpose(X_vooo, (0, 1, 3, 2))
 
     # # Excited-state moment
-    # M3 = 0.25 * np.einsum("baje,ecik->abcijk", X_vvov, t2, optimize=True)
-    # M3 += 0.25 * np.einsum("baje,ecik->abcijk", g[v, v, o, v], r2, optimize=True)
-    # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", X_vooo, t2, optimize=True)
-    # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", g[v, o, o, o], r2, optimize=True)
+    # M3 = 0.25 * np.einsum("baje,ecik->abcijk", X_vvov, t2, optimize=True)         # 1+1 = 2nd order
+    # M3 += 0.25 * np.einsum("baje,ecik->abcijk", g[v, v, o, v], r2, optimize=True) # 1+1 = 2nd order
+    # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", X_vooo, t2, optimize=True)        # 1+1 = 2nd order
+    # M3 -= 0.25 * np.einsum("bmji,acmk->abcijk", g[v, o, o, o], r2, optimize=True) # 1+1 = 2nd order
     # M3 -= np.transpose(M3, (0, 1, 2, 3, 5, 4)) # (jk)
     # M3 -= np.transpose(M3, (0, 1, 2, 4, 3, 5)) + np.transpose(M3, (0, 1, 2, 5, 4, 3)) # (i/jk)
     # M3 -= np.transpose(M3, (0, 2, 1, 3, 4, 5)) # (bc)
@@ -58,10 +62,10 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
     #
     # # Left
     # L3 = (9.0 / 36.0) * (
-    #       np.einsum("ijab,ck->abcijk", g[o, o, v, v], l1, optimize=True)
-    #       # +np.einsum("ia,bcjk->abcijk", I_ov, l2, optimize=True)
-    #       +np.einsum("eiba,ecjk->abcijk", g[v, o, v, v], l2, optimize=True)
-    #       -np.einsum("jima,bcmk->abcijk", g[o, o, o, v], l2, optimize=True)
+    #       np.einsum("ijab,ck->abcijk", g[o, o, v, v], l1, optimize=True)    # 1+0 = 1st order
+    #       # +np.einsum("ia,bcjk->abcijk", I_ov, l2, optimize=True)          # 1+1 = 2nd order
+    #       +np.einsum("eiba,ecjk->abcijk", g[v, o, v, v], l2, optimize=True) # 1+1 = 2nd order
+    #       -np.einsum("jima,bcmk->abcijk", g[o, o, o, v], l2, optimize=True) # 1+1 = 2nd order
     # )
     # L3 -= np.transpose(L3, (0, 1, 2, 3, 5, 4)) # (jk)
     # L3 -= np.transpose(L3, (0, 1, 2, 4, 3, 5)) + np.transpose(L3, (0, 1, 2, 5, 4, 3)) # (i/jk)
@@ -73,12 +77,16 @@ def kernel(T, R, L, r0, omega, fock, g, H1, H2, o, v):
 
     # contract L3*M3
     # delta_A = (1.0 / 36.0) * np.einsum("abcijk,abcijk->", L3, M3, optimize=True)
+    # Divide correction by norm of R vector as a mimic to <L|R> = 1
+    #rnorm = np.einsum("ai,ai->", r1, r1, optimize=True)
+    #rnorm += (1.0 / 4.0) * np.einsum("abij,abij->", r2, r2, optimize=True)
+    #delta_A /= rnorm
+
     delta_A = correction_in_loop(t1, t2, l1, l2, r1, r2, omega, no, nu, fock, g, X_vooo, X_vvov, o, v)
 
     # Store triples corrections in dictionary
     delta_T = {"A": delta_A, "B": 0.0, "C": 0.0, "D": 0.0}
     return delta_T
-
 
 def moments_ijk(i, j, k, h2_vooo, h2_vvov, x2_vooo, x2_vvov, t2, r2):
     '''Computes the moment M(abc) = <ijkabc|H(2)|0> for a fixed i,j,k for i<j<k.'''
@@ -136,6 +144,12 @@ def leftamps_ijk(i, j, k, h2_oovv, h2_vovv, h2_ooov, l1, l2):
 
 def correction_in_loop(t1, t2, l1, l2, r1, r2, omega, no, nu, fock, g, X_vooo, X_vvov, o, v):
 
+    # check if we are using L vectors
+    if l1 is None and l2 is None:
+        use_L = False
+    else:
+        use_L = True
+
     # precompute blocks of diagonal that do not depend on occupied indices
     denom_A_v = vv_denom_abc(fock, v)
 
@@ -149,9 +163,18 @@ def correction_in_loop(t1, t2, l1, l2, r1, r2, omega, no, nu, fock, g, X_vooo, X
                 denom_A_o = fock[o, o][i, i] + fock[o, o][j, j] + fock[o, o][k, k]
 
                 m3 = moments_ijk(i, j, k, g[v, o, o, o], g[v, v, o, v], X_vooo, X_vvov, t2, r2)
-                l3 = leftamps_ijk(i, j, k, g[o, o, v, v], g[v, o, v, v], g[o, o, o, v], l1, l2)
+                if use_L:
+                    l3 = leftamps_ijk(i, j, k, g[o, o, v, v], g[v, o, v, v], g[o, o, o, v], l1, l2)
+                else:
+                    l3 = m3
                 LM = m3 * l3
 
                 delta_A += (1.0 / 6.0) * np.sum(LM/(omega + denom_A_o + denom_A_v))
+
+    # Divide correction by norm of R vector as a mimic to <L|R> = 1 if not using L
+    if not use_L:
+        rnorm = np.einsum("ai,ai->", r1, r1, optimize=True)
+        rnorm += (1.0 / 4.0) * np.einsum("abij,abij->", r2, r2, optimize=True)
+        delta_A /= rnorm
 
     return delta_A

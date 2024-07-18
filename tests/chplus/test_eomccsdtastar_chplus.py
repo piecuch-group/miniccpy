@@ -20,7 +20,10 @@ def test_eomccsdtastar_chplus():
 
     delta_T = []
     for i in range(len(R)):
+        # use this version for L vectors
         delta_T.append(run_eom_correction(T, R[i], L[i], r0[i], omega[i], fock, H1, H2, o, v, method="eomccsdta_star", g=g))
+        # use this version to approximate L by R*
+        #delta_T.append(run_eom_correction(T, R[i], None, r0[i], omega[i], fock, H1, H2, o, v, method="eomccsdta_star", g=g))
 
     #
     # Check the results
