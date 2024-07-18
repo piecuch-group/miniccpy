@@ -552,6 +552,32 @@ def run_ip_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
     print("")
     return e_correction
 
+def run_ea_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
+    """Run the EA correction specified by `method`."""
+
+    # check if requested CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    tic = time.time()
+    e_correction = calculation(T, R, L, omega, fock, g, H1, H2, o, v)
+    toc = time.time()
+    minutes, seconds = divmod(toc - tic, 60)
+
+    print("")
+    for key, value in e_correction.items():
+        print(f"    3p-2h correction energy ({key}): {value}")
+    print("")
+    print("    EA-EOMCC calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
+    print("")
+    return e_correction
+
 def run_dip_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
     """Run the DIP correction specified by `method`."""
 
