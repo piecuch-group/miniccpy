@@ -152,7 +152,7 @@ def compute_ccs_intermediates(f, g, t1, t2, o, v):
     )
     return I_vooo, I_vvov
 
-def compute_t3(I_vooo, I_vvov, t2, e_abcijk):
+def compute_t3(I_vooo, I_vvov, t2, e_abcijk, fock, e_abc):
     """Compute the projection of the CCSDT Hamiltonian on triples
         X[a, b, c, i, j, k] = < ijkabc | (H_N exp(T1+T2+T3))_C | 0 >
     """
@@ -166,6 +166,12 @@ def compute_t3(I_vooo, I_vvov, t2, e_abcijk):
                       + triples_res.transpose(0, 2, 1, 3, 5, 4)   # (bc)(jk)
                       + triples_res.transpose(2, 0, 1, 5, 3, 4)   # (ab)(ij)(ac)(ik)
                       + triples_res.transpose(1, 2, 0, 4, 5, 3) ) # (ab)(ij)(bc)(jk)
+    # Manually zero out the i = j = k and a = b = c blocks
+    nu, _, no, _ = t2.shape
+    for i in range(no):
+        triples_res[:, :, :, i, i, i] *= 0.0
+    for a in range(nu):
+        triples_res[a, a, a, :, :, :] *= 0.0
     return triples_res * e_abcijk
 
 def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core, use_quasi):
@@ -201,7 +207,7 @@ def kernel(fock, g, o, v, maxit, convergence, energy_shift, diis_size, n_start_d
 
         # Compute T3 using the perturbative approximation of CC3
         I_vooo, I_vvov = compute_ccs_intermediates(fock, g, t1, t2, o, v)
-        t3 = compute_t3(I_vooo, I_vvov, t2, e_abcijk)
+        t3 = compute_t3(I_vooo, I_vvov, t2, e_abcijk, fock, e_abc)
         residual_singles = singles_residual(t1, t2, t3, fock, g, o, v)
         residual_doubles = doubles_residual(t1, t2, t3, fock, g, o, v)
 

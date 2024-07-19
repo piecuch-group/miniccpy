@@ -207,7 +207,11 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
         X[i, j, c, d, k, l] = < ijklcd | [ HBar(CCSDT) * (R1 + R2 + R3) ]_C | 0 >
     """
     # Intermediates
-    I_ov = -np.einsum("me,im->ie", H1[o, v], r1, optimize=True)
+    I_vo_add = -np.einsum("me,im->ie", H1[o, v], r1, optimize=True)
+    I_vo = (
+            0.5 * np.einsum("mnie,mn->ie", H2[o, o, o, v], r1, optimize=True)
+            - 0.5 * np.einsum("mnef,jnem->jf", H2[o, o, v, v], r2, optimize=True)
+    )
     I_vv = (
             0.5 * np.einsum("mnef,mn->ef", H2[o, o, v, v], r1, optimize=True)
     )
@@ -233,8 +237,9 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     # I(ijem)
     I_oovo = (
         -np.einsum("nmje,in->ijem", H2[o, o, o, v], r1, optimize=True)
-        + 0.5 * np.einsum("mnef,ijfn->ijem", H2[o, o, v, v], r2, optimize=True)
+        #+ 0.5 * np.einsum("mnef,ijfn->ijem", H2[o, o, v, v], r2, optimize=True)
     )
+    # antisymmetrize A(ij)
     I_oovo -= np.transpose(I_oovo, (1, 0, 2, 3))
     #
     # Moment-like terms
@@ -243,7 +248,7 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     X3 -= (4.0 / 48.0) * np.einsum("ijmk,cdml->ijcdkl", I_oooo, t2, optimize=True)
     X3 += (12.0 / 48.0) * np.einsum("ijce,edkl->ijcdkl", I_oovv, t2, optimize=True)
     # terms contracted with T3
-    X3 += (4.0 / 48.0) * np.einsum("ie,ecdjkl->ijcdkl", I_ov, t3, optimize=True)
+    X3 += (4.0 / 48.0) * np.einsum("ie,ecdjkl->ijcdkl", I_vo, t3, optimize=True)
     X3 += (6.0 / 48.0) * np.einsum("ijem,cdeklm->ijcdkl", I_oovo, t3, optimize=True)
     # terms contracted with R3
     X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True) # T2

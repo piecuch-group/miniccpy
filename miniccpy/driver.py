@@ -252,7 +252,7 @@ def run_leftcc_calc(T, fock, H1, H2, o, v, method, maxit=80, convergence=1.0e-07
     print("")
     return L
 
-def get_hbar(T, fock, g, o, v, method):
+def get_hbar(T, fock, g, o, v, method, **kwargs):
     """Obtain the similarity-transformed Hamiltonian Hbar corresponding
     to the level of ground-state CC theory specified by `method`."""
 
@@ -260,14 +260,14 @@ def get_hbar(T, fock, g, o, v, method):
     mod = import_module("miniccpy.hbar")
     hbar_builder = getattr(mod, 'build_hbar_'+method.lower())
 
-    H1, H2 = hbar_builder(T, fock, g, o, v)
+    H1, H2 = hbar_builder(T, fock, g, o, v, **kwargs)
 
     return H1, H2
 
 def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRINT_THRESH, mult=-1, cvsmin=-1, cvsmax=-1):
     """Run the CIS initial guess to obtain starting vectors for the EOMCC iterations."""
-    from miniccpy.initial_guess import cis_guess, rcis_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess, dipcis_cvs_guess, dipcisd_guess, dipcisd_cvs_guess
-    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector, print_dip_amplitudes
+    from miniccpy.initial_guess import cis_guess, rcis_guess, rcisd_guess, cisd_guess, eacis_guess, ipcis_guess, deacis_guess, dipcis_guess, dipcis_cvs_guess, dipcisd_guess, dipcisd_cvs_guess
+    from miniccpy.printing import print_cis_vector, print_rcis_vector, print_rcisd_vector, print_cisd_vector, print_1p_vector, print_1h_vector, print_2p_vector, print_2h_vector, print_dip_amplitudes
 
     no, nu = H1[o, v].shape
 
@@ -282,6 +282,9 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
     elif method == "rcis":
         nroot = min(nroot, no * nu)
         R0, omega0 = rcis_guess(H1, H2, o, v, nroot, mult=1)
+    elif method == "rcisd":
+        nroot = min(nroot, no * nu + int(nacto*(nacto - 1)/2 * nactu*(nactu - 1)/2))
+        R0, omega0 = rcisd_guess(H1, H2, o, v, nroot, nacto, nactu, mult=1)
     elif method == "eacis":
         nroot = min(nroot, nu)
         R0, omega0 = eacis_guess(H1, H2, o, v, nroot)
@@ -322,6 +325,8 @@ def run_guess(H1, H2, o, v, nroot, method, nacto=0, nactu=0, print_threshold=PRI
             print_cis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
         elif method == "rcis":
             print_rcis_vector(R0[:, i].reshape(nu, no), print_threshold=print_threshold)
+        elif method == "rcisd":
+            print_rcisd_vector(R0[:no*nu, i].reshape(nu, no), R0[no*nu:, i].reshape(nu, nu, no, no), print_threshold=print_threshold)
         elif method == "cisd":
             print_cisd_vector(R0[:no*nu, i].reshape(nu, no), R0[no*nu:, i].reshape(nu, nu, no, no), print_threshold=print_threshold)
         elif method == "eacis":
@@ -358,10 +363,6 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
     mod = import_module("miniccpy."+method.lower())
     calculation = getattr(mod, 'kernel')
 
-    # if method == "dipeom4_star_p":
-    #    # update T1 and T2 with approximate T3 contributions
-    #    T, H1, H2 = ccsd_t3_correction(T, fock, g, H1, H2, o, v)
-
     nroot = len(state_index)
 
     R = [0 for i in range(nroot)]
@@ -372,7 +373,9 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         tic = time.time()
         # Note: EOMCC3 methods have a difference function call due to needing fock and g matrices
         if method.lower() == "eomcc3": # Folded EOMCC3 model
-                R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
+        elif method.lower() == "eomccsdta" or method.lower() == "eomrccsdta":
+            R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
         elif method.lower() == "dreomcc3": # Folded dressed EOMCC3 model using excited-state DIIS algorithm
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "eomcc3-lin": # Linear EOMCC3 model using conventional Davidson diagonalization

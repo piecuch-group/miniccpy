@@ -6,14 +6,14 @@ TEST_DATA_DIR = str(Path(__file__).parents[1].absolute() / "data")
 
 def test_eaeomccsdtastar_chplus():
 
-    #fock, g, e_hf, o, v = run_scf_gamess(TEST_DATA_DIR + "/chplus.FCIDUMP", 6, 26, 0)
+    fock, g, e_hf, o, v = run_scf_gamess(TEST_DATA_DIR + "/chplus.FCIDUMP", 6, 26, 0)
 
-    basis = '6-31g'
-    nfrozen = 0
-    geom = [["C", (0.0, 0.0, 0.0)],
-            ["H", (0.0, 0.0, 2.13713)]]
+    #basis = '6-31g'
+    #nfrozen = 0
+    #geom = [["C", (0.0, 0.0, 0.0)],
+    #        ["H", (0.0, 0.0, 2.13713)]]
 
-    fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, charge=1, unit="Bohr", symmetry="C2V")
+    #fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, charge=1, unit="Bohr", symmetry="C2V")
 
     T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
     T, H = get_hbar(T, fock, g, o, v, method='ccsdta')

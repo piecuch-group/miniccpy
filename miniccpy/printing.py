@@ -207,6 +207,24 @@ def print_cisd_vector(r1, r2, print_threshold):
                     r2[b, a, i, j] = -1.0 * r2[a, b, i, j]
     return
 
+def print_rcisd_vector(r1, r2, print_threshold):
+    nu, no = r1.shape
+
+    n = 1
+    for a in range(nu):
+        for i in range(no):
+            if abs(r1[a, i]) <= print_threshold: continue
+            print(f"     [{n}]  {i + 1} -> {a + no + 1}    {r1[a, i]}")
+            n += 1
+    for a in range(nu):
+        for b in range(a, nu):
+            for i in range(no):
+                for j in range(i, no):
+                    if abs(r2[a, b, i, j]) <= print_threshold: continue
+                    print(f"     [{n}]  {i + 1} {j + 1} -> {a + no + 1} {b + no + 1}    {r2[a, b, i, j]}")
+                    n += 1
+    return
+
 def print_1p_vector(r, no, print_threshold):
     nu, = r.shape
     n = 1
