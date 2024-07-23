@@ -5,6 +5,8 @@ A small Python package for spin-orbital coupled-cluster computations
 import sys
 from setuptools import setup, find_packages
 import versioneer
+from Cython.Build import cythonize
+import numpy
 
 short_description = "A small Python package for spin-orbital coupled-cluster computations".split("\n")[0]
 

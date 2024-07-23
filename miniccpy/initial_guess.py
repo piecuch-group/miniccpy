@@ -369,9 +369,9 @@ def rcisd_scatter(V_in, nacto, nactu, no, nu):
             V1_out[a, i] = V_in[offset]
             offset += 1
     for a in range(nu):
-        for b in range(a, nu):
+        for b in range(nu):
             for i in range(no):
-                for j in range(i, no):
+                for j in range(no):
                     if a < nactu and b < nactu and i >= no - nacto and j >= no - nacto:
                         V2_out[a, b, i, j] = V_in[offset]
                         V2_out[b, a, j, i] = V_in[offset]
@@ -718,7 +718,9 @@ def build_rcisd_hamiltonian(fock, g, o, v, nacto, nactu):
     no, nu = fock[o, v].shape
     # set dimensions of CISD problem
     n1 = no * nu
-    n2 = int(nacto * (nacto + 1) / 2 * nactu * (nactu + 1) / 2)
+    #n2 = int(nacto * (nacto + 1) / 2 * nactu * (nactu + 1) / 2)
+    #n2 = int(nactu * (nactu + 1) / 2) * nacto**2
+    n2 = nacto**2 * nactu**2
     # get index addressing arrays
     idx_1, idx_2 = get_rcisd_index_arrays(no, nu, nacto, nactu)
     ###########
@@ -750,6 +752,13 @@ def build_rcisd_hamiltonian(fock, g, o, v, nacto, nactu):
                     if jdet == 0: continue
                     J = abs(jdet) - 1
                     s_H_s[I, J] += g[v, o, o, v][a, m, i, e] - g[v, o, v, o][a, m, e, i]
+            # h2b(amie) * r1b(em)
+            for e in range(nu):
+                for m in range(no):
+                    jdet = idx_1[e, m]
+                    if jdet == 0: continue
+                    J = abs(jdet) - 1
+                    s_H_s[I, J] += g[v, o, o, v][a, m, i, e]
             # h1b(me) * r2b(aeim)
             for e in range(nactu):
                 for m in range(no - nacto, no):
@@ -1251,11 +1260,11 @@ def get_rcisd_index_arrays(no, nu, nacto, nactu):
     idx_2 = np.zeros((nu, nu, no, no), dtype=np.int32)
     kout = 1
     for a in range(nactu):
-        for b in range(a, nactu):
+        for b in range(nactu):
             for i in range(no - nacto, no):
-                for j in range(i, no):
+                for j in range(no - nacto, no):
                     idx_2[a, b, i, j] = kout
-                    idx_2[b, a, j, i] = kout
+                    # idx_2[b, a, j, i] = kout
                     kout += 1
     return idx_1, idx_2
 

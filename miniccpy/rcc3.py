@@ -2,6 +2,7 @@ import time
 import numpy as np
 from miniccpy.energy import rcc_energy
 from miniccpy.helper_cc import get_rccs_intermediates
+#from miniccpy.lib.rcc3 import add_t3_contributions
 from miniccpy.diis import DIIS
 from miniccpy.utilities import get_memory_usage
 
