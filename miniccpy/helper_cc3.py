@@ -1,5 +1,98 @@
 import numpy as np
 
+def compute_eomrcc3_intermediates(r1, r2, h_oooo, h_voov, h_vovo, h_vvvv):
+    x_vvov = (
+        - np.einsum("cmej,bm->bcje", h_vovo, r1, optimize=True)
+        - np.einsum("bmje,cm->bcje", h_voov, r1, optimize=True)
+        + np.einsum("bcef,ej->bcjf", h_vvvv, r1, optimize=True)
+    )
+    x_vooo = (
+        - np.einsum("mnjk,bm->bnjk", h_oooo, r1, optimize=True)
+        + np.einsum("bmje,ek->bmjk", h_voov, r1, optimize=True)
+        + np.einsum("bmek,ej->bmjk", h_vovo, r1, optimize=True)
+    )
+    return x_vvov, x_vooo
+
+def compute_rccs_intermediates(t1, t2, f, g, o, v):
+
+    Q1 = -np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)
+    I_vovv = g[v, o, v, v] + 0.5 * Q1
+
+    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
+    I_ooov = g[o, o, o, v] + 0.5 * Q1
+
+    Q1 = -np.einsum("mnef,an->maef", g[o, o, v, v], t1, optimize=True)
+    I_ovvv = g[o, v, v, v] + 0.5 * Q1
+
+    Q1 = np.einsum("nmef,fi->nmei", g[o, o, v, v], t1, optimize=True)
+    I_oovo = g[o, o, v, o] + 0.5 * Q1
+
+    h_vvvv = g[v, v, v, v] + (
+                - np.einsum("mbef,am->abef", I_ovvv, t1, optimize=True)
+                - np.einsum("amef,bm->abef", I_vovv, t1, optimize=True)
+    )
+
+    h_oooo = g[o, o, o, o] + (
+                np.einsum("mnej,ei->mnij", I_oovo, t1, optimize=True)
+                + np.einsum("mnie,ej->mnij", I_ooov, t1, optimize=True)
+    )
+
+    h_voov = g[v, o, o, v] + (
+                np.einsum("amfe,fi->amie", I_vovv, t1, optimize=True)
+                - np.einsum("nmie,an->amie", I_ooov, t1, optimize=True)
+    )
+
+    h_vovo = g[v, o, v, o] + (
+                - np.einsum("nmei,an->amei", I_oovo, t1, optimize=True)
+                + np.einsum("amef,fi->amei", I_vovv, t1, optimize=True)
+    )
+
+    Q1 = g[v, o, o, v] + np.einsum("amfe,fi->amie", g[v, o, v, v], t1, optimize=True)
+    h_vooo = g[v, o, o, o] + (
+                - np.einsum("nmij,an->amij", h_oooo, t1, optimize=True)
+                + np.einsum("amej,ei->amij", g[v, o, v, o], t1, optimize=True)
+                + np.einsum("amie,ej->amij", Q1, t1, optimize=True)
+    )
+
+    Q1 = g[o, v, o, v] - np.einsum("mnie,bn->mbie", g[o, o, o, v], t1, optimize=True)
+    Q1 = -np.einsum("mbie,am->abie", Q1, t1, optimize=True)
+    h_vvov = g[v, v, o, v] + Q1 + (
+                + np.einsum("abfe,fi->abie", h_vvvv, t1, optimize=True)
+                - np.einsum("amie,bm->abie", g[v, o, o, v], t1, optimize=True)
+    )
+    return h_vvov, h_vooo, h_voov, h_vovo, h_vvvv, h_oooo
+
+def compute_rcc3_intermediates(f, g, t1, t2, o, v):
+    Q1 = -np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)
+    I_vovv = g[v, o, v, v] + 0.5 * Q1
+
+    Q1 = np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
+    I_ooov = g[o, o, o, v] + 0.5 * Q1
+
+    I_vvvv = g[v, v, v, v] + (
+            - np.einsum("amef,bm->abef", I_vovv, t1, optimize=True)
+            - np.einsum("bmfe,am->abef", I_vovv, t1, optimize=True)
+    )
+
+    I_oooo = g[o, o, o, o] + (
+              np.einsum("mnie,ej->mnij", I_ooov, t1, optimize=True)
+            + np.einsum("nmje,ei->mnij", I_ooov, t1, optimize=True)
+    )
+
+    Q1 = g[v, o, o, v] + np.einsum("amfe,fi->amie", g[v, o, v, v], t1, optimize=True)
+    I_vooo = g[v, o, o, o] + (
+            - np.einsum("nmij,an->amij", I_oooo, t1, optimize=True)
+            + np.einsum("amej,ei->amij", g[v, o, v, o], t1, optimize=True)
+            + np.einsum("amie,ej->amij", Q1, t1, optimize=True)
+    )
+    Q1 = g[o, v, o, v] - np.einsum("mnie,bn->mbie", g[o, o, o, v], t1, optimize=True)
+    Q1 = -np.einsum("mbie,am->abie", Q1, t1, optimize=True)
+    I_vvov = g[v, v, o, v] + Q1 + (
+            + np.einsum("abfe,fi->abie", I_vvvv, t1, optimize=True)
+            - np.einsum("amie,bm->abie", g[v, o, o, v], t1, optimize=True)
+    )
+    return I_vooo, I_vvov
+
 def compute_r3(r1, r2, t1, t2, omega, f, g, o, v):
 
     # CCS Hbar elements

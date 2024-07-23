@@ -129,9 +129,8 @@ def add_t3_contributions(t1, t2, f, g, I_vooo, I_vvov, e_abc, o, v):
     nu, no = t1.shape
     # Intermediates
     h_ov = f[o, v] + (
-              np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
+              2.0 * np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
             - np.einsum("mnfe,fn->me", g[o, o, v, v], t1, optimize=True)
-            + np.einsum("mnef,fn->me", g[o, o, v, v], t1, optimize=True)
     )
     h_ooov = g[o, o, o, v] + np.einsum("mnfe,fi->mnie", g[o, o, v, v], t1, optimize=True)
     h_vovv = g[v, o, v, v] - np.einsum("nmef,an->amef", g[o, o, v, v], t1, optimize=True)

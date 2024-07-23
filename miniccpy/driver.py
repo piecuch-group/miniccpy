@@ -372,7 +372,7 @@ def run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method, state_index, fock=None, 
         print(f"    Solving for state #{state_index[n]}")
         tic = time.time()
         # Note: EOMCC3 methods have a difference function call due to needing fock and g matrices
-        if method.lower() == "eomcc3": # Folded EOMCC3 model
+        if method.lower() == "eomcc3" or method.lower() == "eomrcc3": # Folded EOMCC3 model
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, diis_size=diis_size, do_diis=do_diis)
         elif method.lower() == "eomccsdta" or method.lower() == "eomrccsdta":
             R[n], omega[n], r0[n], rel = calculation(R0[:, state_index[n]], T, omega0[state_index[n]], fock, g, H1, H2, o, v, maxit, convergence, max_size=max_size, out_of_core=out_of_core)
