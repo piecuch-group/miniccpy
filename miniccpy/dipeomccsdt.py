@@ -244,7 +244,7 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     # I(cekf)
     I_vvov = (
         0.5 * np.einsum("mnef,mnck->cekf", H2[o, o, v, v], r2, optimize=True)
-        + np.einsum("cmef,km->cekf", H2[v, o, v, v], r1, optimize=True) # (!) flipped sign here
+        + np.einsum("cmef,km->cekf", H2[v, o, v, v], r1, optimize=True) # (!) flipped sign from - to + here
     )
     #
     # Moment-like terms

@@ -43,4 +43,4 @@ def test_dipeom4a_ch2_sym():
         assert np.allclose(omega[i], vee, atol=1.0e-06)
 
 if __name__ == "__main__":
-    test_dipeom4_p_ch2_sym()
+    test_dipeom4a_ch2_sym()
