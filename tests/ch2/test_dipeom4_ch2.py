@@ -1,15 +1,9 @@
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, run_guess, run_eomcc_calc, get_hbar
 
-def spatial(x):
-    if x % 2 == 0:
-        return x // 2
-    else:
-        return (x - 1) // 2
-
 def test_dipeom4_ch2():
 
-    basis = 'sto-3g'
+    basis = '6-31g'
     nfrozen = 0
 
     geom = [["C", (0.0, 0.0, 0.0)],
@@ -28,40 +22,46 @@ def test_dipeom4_ch2():
     #
     # Check the results
     #
-    #expected_vee = [-0.4700687744, -0.4490361545]
-    #for i, vee in enumerate(expected_vee):
-    #    assert np.allclose(omega[i], vee, atol=1.0e-06)
+    expected_vee = [-0.4700687744, -0.4490361545]
+    for i, vee in enumerate(expected_vee):
+       assert np.allclose(omega[i], vee, atol=1.0e-06)
 
-    t1, t2 = T
-    nu, no = t1.shape
-    r3_abaa = np.zeros((no // 2, no // 2, nu // 2, nu // 2, no // 2, no // 2))
-    r1, r2, r3 = R[1]
-    for i in range(no):
-        isp = spatial(i)
-        for j in range(i + 1, no):
-            jsp = spatial(j)
-            for k in range(j + 1, no):
-                ksp = spatial(k)
-                for l in range(k + 1, no):
-                    lsp = spatial(l)
-                    for c in range(nu):
-                        csp = spatial(c)
-                        for d in range(c + 1, nu):
-                            dsp = spatial(d)
-                            # abaa
-                            if i % 2 == 0 and j % 2 == 1 and k % 2 == 0 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
-                                #print(i, j, "->", isp, jsp)
-                                if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
-                                    print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
-                            if i % 2 == 1 and j % 2 == 0 and k % 2 == 0 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
-                                if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
-                                    print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
-                            if i % 2 == 0 and j % 2 == 0 and k % 2 == 1 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
-                                if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
-                                    print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
-                            if i % 2 == 0 and j % 2 == 0 and k % 2 == 0 and l % 2 == 1 and c % 2 == 0 and d % 2 == 0:
-                                if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
-                                    print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
+    # t1, t2 = T
+    # nu, no = t1.shape
+    # r3_abaa = np.zeros((no // 2, no // 2, nu // 2, nu // 2, no // 2, no // 2))
+    # r1, r2, r3 = R[1]
+    # for i in range(no):
+    #     isp = spatial(i)
+    #     for j in range(i + 1, no):
+    #         jsp = spatial(j)
+    #         for k in range(j + 1, no):
+    #             ksp = spatial(k)
+    #             for l in range(k + 1, no):
+    #                 lsp = spatial(l)
+    #                 for c in range(nu):
+    #                     csp = spatial(c)
+    #                     for d in range(c + 1, nu):
+    #                         dsp = spatial(d)
+    #                         # abaa
+    #                         if i % 2 == 0 and j % 2 == 1 and k % 2 == 0 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
+    #                             #print(i, j, "->", isp, jsp)
+    #                             if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
+    #                                 print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
+    #                         if i % 2 == 1 and j % 2 == 0 and k % 2 == 0 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
+    #                             if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
+    #                                 print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
+    #                         if i % 2 == 0 and j % 2 == 0 and k % 2 == 1 and l % 2 == 0 and c % 2 == 0 and d % 2 == 0:
+    #                             if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
+    #                                 print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
+    #                         if i % 2 == 0 and j % 2 == 0 and k % 2 == 0 and l % 2 == 1 and c % 2 == 0 and d % 2 == 0:
+    #                             if abs(r3[i, j, c, d, k, l]) > 1.0e-06:
+    #                                 print(isp, jsp, ksp, lsp, csp, dsp, ":", r3[i, j, c, d, k, l])
+
+# def spatial(x):
+#     if x % 2 == 0:
+#         return x // 2
+#     else:
+#         return (x - 1) // 2
 
 if __name__ == "__main__":
     test_dipeom4_ch2()

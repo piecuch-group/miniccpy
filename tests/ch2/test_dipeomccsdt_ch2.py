@@ -22,9 +22,9 @@ def test_dipeomccsdt_ch2():
     #
     # Check the results
     #
-    #expected_vee = [-0.4700687744, -0.4490361545]
-    #for i, vee in enumerate(expected_vee):
-    #    assert np.allclose(omega[i], vee, atol=1.0e-06)
+    expected_vee = [-0.467288309238, -0.446416466198]
+    for i, vee in enumerate(expected_vee):
+       assert np.allclose(omega[i], vee, atol=1.0e-07)
 
 if __name__ == "__main__":
     test_dipeomccsdt_ch2()
