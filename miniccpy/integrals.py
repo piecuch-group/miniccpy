@@ -174,6 +174,19 @@ def get_integrals_from_custom_hamiltonian(h1, h2):
 
     return z, g, fock, o, v, e_hf
 
+def spatial_to_spinorb_onebody(e1int):
+    """Convert one-body spatial orbital integrals to spinorbital integrals."""
+
+    n = e1int.shape[0]
+    z = np.zeros((2*n, 2*n))
+
+    for i in range(2*n):
+        for j in range(2*n):
+            if i % 2 == j % 2:
+                i0 = int(np.floor(i/2))
+                j0 = int(np.floor(j/2))
+                z[i, j] = e1int[i0, j0]
+    return z
 
 def spatial_to_spinorb(e1int, e2int):
     """Convert spatial orbital integrals to spinorbital integrals."""
