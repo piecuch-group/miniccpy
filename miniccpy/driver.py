@@ -13,7 +13,7 @@ MODULES = [module for module in __all__]
 RHF_MODULES = ["rlccd", "rccd", "rccsd", "rccsdt", "left_rccsd", "left_eomrccsd", "eomrccsd", "rcc3", "rccsdt", "eomrccsdt"]
 
 # amplitude printing threshold
-PRINT_THRESH = 0.09
+PRINT_THRESH = 0.025
 
 def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
     """Obtain the mean-field solution from GAMESS FCIDUMP file and 
@@ -39,13 +39,14 @@ def run_scf_gamess(fcidump, nelectron, norbitals, nfrozen=0, rhf=False):
 def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0, 
             maxit=200, level_shift=0.0, damp=0.0, convergence=1.0e-10,
             symmetry=None, cartesian=False, unit="Bohr", uhf=False, rhf=False,
-            return_orbsym=False, x2c=False):
+            return_orbsym=False, x2c=False, multipole=0):
     """Run the ROHF calculation using PySCF and obtain the molecular
     orbital integrals in normal-ordered form as well as the occupied/
     unoccupied slicing arrays for correlated calculations."""
     from pyscf import gto, scf, symm
     from miniccpy.printing import print_system_information, print_custom_system_information
     from miniccpy.integrals import get_integrals_from_pyscf, get_integrals_from_pyscf_uhf, get_integrals_from_pyscf_rhf
+    from miniccpy.multipoles import get_multipole_integrals 
 
     if symmetry is None:
         point_group = True
@@ -111,10 +112,17 @@ def run_scf(geometry, basis, nfrozen=0, multiplicity=1, charge=0,
     else:
         print_system_information(mf, nfrozen, e_hf)
 
-    if return_orbsym:
-        return fock, e2int, e_hf, corr_occ, corr_unocc, sporbsym[2*nfrozen:]
+    if multipole != 0:
+        mu = get_multipole_integrals(multipole, mol, mf) 
+        if return_orbsym:
+            return fock, e2int, e_hf, corr_occ, corr_unocc, mu, sporbsym[2*nfrozen:]
+        else:
+            return fock, e2int, e_hf, corr_occ, corr_unocc, mu
     else:
-        return fock, e2int, e_hf, corr_occ, corr_unocc
+        if return_orbsym:
+            return fock, e2int, e_hf, corr_occ, corr_unocc, sporbsym[2*nfrozen:]
+        else:
+            return fock, e2int, e_hf, corr_occ, corr_unocc
 
 def run_mpn_calc(fock, g, o, v, method):
     """Compute the Moller-Plesett energy correction specified
@@ -606,3 +614,44 @@ def run_dip_correction(T, R, L, omega, fock, g, H1, H2, o, v, method):
     print(f"    Memory usage: {get_memory_usage()} MB")
     print("")
     return e_correction
+
+def run_lrcc1_calc(T, H1, H2, W, o, v, method, maxit=80, convergence=1.0e-07, energy_shift=0.0, diis_size=6, n_start_diis=0, out_of_core=False):
+    """Run the ground-state LR-CC(1) calculation specified by `method`."""
+    from miniccpy.printing import print_amplitudes
+
+    # check if requested CC calculation is implemented in modules
+    if method not in MODULES:
+        raise NotImplementedError(
+            "{} not implemented".format(method)
+        )
+    if method in RHF_MODULES:
+        flag_rhf = True
+    else:
+        flag_rhf = False
+    # import the specific CC method module and get its update function
+    mod = import_module("miniccpy."+method.lower())
+    calculation = getattr(mod, 'kernel')
+
+    # Turn off DIIS for small systems; it becomes singular!
+    if H1.shape[0] <= 4: 
+        print("Turning off DIIS acceleration for small system")
+        diis_size = 1000 
+
+    tic = time.time()
+    eta, prop_corr = calculation(T, H1, H2, W, o, v, maxit, convergence, energy_shift, diis_size, n_start_diis, out_of_core)
+    toc = time.time()
+
+    minutes, seconds = divmod(toc - tic, 60)
+
+    print("")
+    print("    LR-CC(1) Correlation Energy Derivative: {: 20.12f}".format(prop_corr))
+    print("")
+    print("    Largest Singly and Doubly Excited Amplitudes")
+    print("    --------------------------------------------")
+    print_amplitudes(T[0], T[1], PRINT_THRESH, rhf=flag_rhf)
+    print("")
+    print("    LR-CC(1) calculation completed in {:.2f}m {:.2f}s".format(minutes, seconds))
+    print(f"    Memory usage: {get_memory_usage()} MB")
+    print("")
+
+    return eta, prop_corr
