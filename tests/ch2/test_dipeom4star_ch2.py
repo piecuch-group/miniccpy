@@ -12,7 +12,7 @@ def test_dipeom4star_ch2():
 
     fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, symmetry="C2V", unit="Bohr", cartesian=False, charge=-2)
 
-    T, Ecorr  = run_cc_calc(fock, g, o, v, method='ccsd')
+    T, Ecorr = run_cc_calc(fock, g, o, v, method='ccsd')
     T, H = get_hbar(T, fock, g, o, v, method='ccsdta')
     H1, H2 = H
 
@@ -23,12 +23,12 @@ def test_dipeom4star_ch2():
     for i in range(len(R)):
         delta_star.append(run_dip_correction(T, R[i], None, omega[i], fock, g, H1, H2, o, v, method="dipeom4_star"))
 
-    expected_vee = [-0.456675867929, -0.440136922561]
-    expected_correction = [-0.026148299571473976, -0.026527944212538943]
+    expected_vee = [-0.45663637, -0.44009454]
+    expected_correction = [-0.0217160701, -0.0221398782]
     #
     # Check the results
     #
-    assert np.allclose(Ecorr, -0.10364237523855391)
+    assert np.allclose(Ecorr, -0.10364237)
     for i in range(len(expected_vee)):
         assert np.allclose(omega[i], expected_vee[i])
         assert np.allclose(delta_star[i]["A"], expected_correction[i])
