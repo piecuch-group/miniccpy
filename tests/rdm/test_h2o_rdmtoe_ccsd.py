@@ -1,0 +1,36 @@
+import numpy as np
+from miniccpy.driver import run_scf, run_cc_calc, run_scf, run_cc_calc, get_hbar, run_leftcc_calc
+from miniccpy.rdm1 import rdm1_ccsd
+from miniccpy.rdm2 import rdm2_ccsd
+from miniccpy.energy import cc_corr_energy_from_rdm
+
+
+def test_h2o_rdmtoe():
+
+        basis = 'dz'
+        nfrozen = 1
+
+        # Define molecule geometry and basis set
+        geom = [["H", (0, 1.515263, -1.058898)],
+                ["H", (0, -1.515263, -1.058898)],
+                ["O", (0.0, 0.0, -0.0090)]]
+
+        fock, g, e_hf, o, v = run_scf(geom, basis, nfrozen, maxit=200, unit="Angstrom")
+        
+        T, E_corr = run_cc_calc(fock, g, o, v, method='ccsd', maxit=80)
+
+        H1, H2 = get_hbar(T, fock, g, o, v, method="ccsd")
+
+        L = run_leftcc_calc(T, fock, H1, H2, o, v, method="left_ccsd")
+
+        rdm1 = rdm1_ccsd(L, T)
+        rdm2 = rdm2_ccsd(L, T)
+
+        E_corr_from_rdm = cc_corr_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
+
+
+        assert np.allclose(E_corr_from_rdm, E_corr, atol=1.0e-07)
+
+
+if __name__ == "__main__":
+        test_h2o_rdmtoe()
