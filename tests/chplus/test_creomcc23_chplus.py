@@ -14,7 +14,7 @@ def test_creomcc23_chplus():
 
     R0, omega0 = run_guess(H1, H2, o, v, 15, method="cisd", nacto=6, nactu=6, mult=1)
 
-    R, omega, r0 = run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method='eomccsd', state_index=[0, 6, 7], maxit=80)
+    R, omega, r0 = run_eomcc_calc(R0, omega0, T, H1, H2, o, v, method='eomccsd', state_index=[0, 5, 7], maxit=80)
     L, omega_left = run_lefteomcc_calc(R, omega, T, H1, H2, o, v, method='left_eomccsd', maxit=80)
 
     delta_T = []
