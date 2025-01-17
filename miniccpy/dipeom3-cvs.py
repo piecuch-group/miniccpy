@@ -2,6 +2,7 @@ import time
 import numpy as np
 import h5py
 from miniccpy.utilities import get_memory_usage, remove_file
+from miniccpy.hbar_diagonal import get_3body_hbar_triples_diagonal
 
 def kernel(R0, T, omega, H1, H2, o, v, cvsmin, cvsmax, maxit=80, convergence=1.0e-07, max_size=20, nrest=1, out_of_core=False):
     """
@@ -18,20 +19,25 @@ def kernel(R0, T, omega, H1, H2, o, v, cvsmin, cvsmax, maxit=80, convergence=1.0
     n2 = nocc**3 * nunocc
     ndim = n1 + n2
 
-    # use the full 1- and 2-body Hbar to form the diagonal preconditioner
-    # this greatly accelerates convergence for core DIP states
+    # use Epstein-Nesbet Hbar diagonal to form Davidson preconditioner
+    # (this greatly accelerates convergence for core DIP states)
     e_ij = np.zeros((nocc, nocc))
     e_ijck = np.zeros((nocc, nocc, nunocc, nocc))
+    d3v, d3o = get_3body_hbar_triples_diagonal(H2[o, o, v, v], t2)
     for i in range(nocc):
         for j in range(i + 1, nocc):
             e_ij[i, j] -= H1[o, o][i, i] + H1[o, o][j, j]
             e_ij[i, j] += H2[o, o, o, o][i, j, i, j]
             for k in range(j + 1, nocc):
                 for c in range(nunocc):
+                    # 1-body hbar
                     e_ijck[i, j, c, k] -= H1[o, o][i, i] + H1[o, o][j, j] + H1[o, o][k, k]
                     e_ijck[i, j, c, k] += H1[v, v][c, c]
+                    # 2-body hbar
                     e_ijck[i, j, c, k] += H2[o, o, o, o][i, j, i, j] + H2[o, o, o, o][i, k, i, k] + H2[o, o, o, o][j, k, j, k]
                     e_ijck[i, j, c, k] += H2[v, o, o, v][c, i, i, c] + H2[v, o, o, v][c, j, j, c] + H2[v, o, o, v][c, k, k, c]
+                    # 3-body hbar
+                    e_ijck[i, j, c, k] -= d3o[c, i, k] + d3o[c, j, k] + d3o[c, i, j]
     # symmetrize (not antisymmetrize!) the diagonals
     for i in range(nocc):
         for j in range(i + 1, nocc):
