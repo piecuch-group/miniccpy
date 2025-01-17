@@ -482,7 +482,7 @@ def run_lefteomcc_calc(R, omega0, T, H1, H2, o, v, method, fock=None, g=None, ma
 
     return L, omega
 
-def run_correction(T, L, fock, H1, H2, o, v, method): 
+def run_correction(T, L, fock, H1, H2, o, v, method, **kwargs): 
     """Run the ground-state CC correction specified by `method`."""
 
     # check if requested CC calculation is implemented in modules
@@ -495,7 +495,7 @@ def run_correction(T, L, fock, H1, H2, o, v, method):
     calculation = getattr(mod, 'kernel')
 
     tic = time.time()
-    e_correction = calculation(T, L, fock, H1, H2, o, v)
+    e_correction = calculation(T, L, fock, H1, H2, o, v, **kwargs)
     toc = time.time()
     minutes, seconds = divmod(toc - tic, 60)
 
