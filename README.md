@@ -67,6 +67,10 @@ Karthik Gururangan
 Doctoral student, Department of Chemistry, Michigan State University  
 e-mail: gururang@msu.edu  
 
+Tiange Deng  
+Doctoral student, Department of Chemistry, Michigan State University  
+e-mail: dengtia4@msu.edu  
+
 Professor Piotr Piecuch  
 University Distinguished Professor and Michigan State University Foundation Professor, Department of Chemistry, Michigan State University  
 Adjunct Professor, Department of Physics and Astronomy, Michigan State University

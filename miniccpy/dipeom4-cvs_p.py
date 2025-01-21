@@ -147,27 +147,9 @@ def kernel(R0, T, omega, H1, H2, o, v, cvsmin, cvsmax, r3_excitations=None, maxi
 def update(r1, r2, r3, r3_excitations, omega, h1_oo, h1_vv, h2_oooo, h2_voov, h2_vvvv, cvsmin, cvsmax):
     """Perform the diagonally preconditioned residual (DPR) update
     to get the next correction vector."""
-    r1, r2, r3 = dipeom4_p.dipeom4_p.update_r_full_denom(r1, r2, r3, r3_excitations, omega,
-                                                         h1_oo, h1_vv, h2_oooo, h2_voov, h2_vvvv)
-    # Zero out elements that do not contain at least 1 core orbital
-    # Core region is defined as cvsmin <= i <= cvsmax
-    no, _, nu, _ = r2.shape
-    for i in range(no):
-        for j in range(i + 1, no):
-            if (i < cvsmin or i > cvsmax) and (j < cvsmin or j > cvsmax):
-                r1[i, j] = 0.0
-                r1[j, i] = 0.0
-    for i in range(no):
-        for j in range(i + 1, no):
-            for c in range(nu):
-                for k in range(j + 1, no):
-                    if (k < cvsmin or k > cvsmax) and (i < cvsmin or i > cvsmax) and (j < cvsmin or j > cvsmax):
-                        r2[i, j, c, k] = 0.0
-                        r2[i, k, c, j] = 0.0
-                        r2[j, i, c, k] = 0.0
-                        r2[j, k, c, i] = 0.0
-                        r2[k, i, c, j] = 0.0
-                        r2[k, j, c, i] = 0.0
+    r1, r2, r3 = dipeom4_p.dipeom4_p.update_r_cvs(r1, r2, r3, r3_excitations, omega,
+                                                  h1_oo, h1_vv, h2_oooo, h2_voov, h2_vvvv,
+                                                  cvsmin + 1, cvsmax + 1)
     return np.hstack([r1.flatten(), r2.flatten(), r3])
 
 def HR(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, do_r3, cvsmin, cvsmax):
@@ -180,7 +162,7 @@ def HR(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, do_r3, cvsmin, cvsmax):
     HR2 = build_HR2(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
     # update R3
     if do_r3:
-        HR3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v)
+        HR3, r3_excitations = build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, cvsmin, cvsmax)
     # Zero out elements that do not contain at least 1 core orbital
     # Core region is defined as cvsmin <= i <= cvsmax
     no, _, nu, _ = r2.shape
@@ -231,7 +213,7 @@ def build_HR2(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
     X2 = dipeom4_p.dipeom4_p.build_hr2(X2, r3, r3_excitations, H1[o, v], H2[v, o, v, v], H2[o, o, o, v])
     return X2
 
-def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
+def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v, cvsmin, cvsmax):
     """Compute the projection of HR on 4h-2p excitations
         X[i, j, c, d, k, l] = < ijklcd | [ HBar(CCSD) * (R1 + R2 + R3) ]_C | 0 >
     """
@@ -256,12 +238,13 @@ def build_HR3(r1, r2, r3, r3_excitations, t1, t2, H1, H2, o, v):
     )
     I_oovv = dipeom4_p.dipeom4_p.build_i_oovv(I_oovv, r3, r3_excitations, H2[o, o, v, v])
 
-    X3, r3, r3_excitations = dipeom4_p.dipeom4_p.build_hr4_p(
+    X3, r3, r3_excitations = dipeom4_p.dipeom4_p.build_hr4_p_cvs(
             r3, r3_excitations,
             t2, r2,
             H1[o, o], H1[v, v],
             H2[v, v, o, v], H2[v, o, o, o], I_oooo, I_oovv,
             H2[o, o, o, o], H2[v, o, o, v], H2[v, v, v, v].transpose(3, 2, 1, 0),
+            cvsmin + 1, cvsmax + 1,
     )
     return X3, r3_excitations
 
