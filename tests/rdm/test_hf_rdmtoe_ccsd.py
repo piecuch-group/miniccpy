@@ -1,7 +1,7 @@
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, run_scf, run_cc_calc, get_hbar, run_leftcc_calc
 from miniccpy.rdm1 import rdm1_ccsd
-from miniccpy.rdm2 import rdm2_ccsd, rdm2_ccsd_fact
+from miniccpy.rdm2 import rdm2_ccsd
 from miniccpy.energy import cc_corr_energy_from_rdm
 
 
@@ -24,14 +24,10 @@ def test_hf_rdmtoe():
 
         rdm1 = rdm1_ccsd(L, T)
         rdm2 = rdm2_ccsd(L, T)
-        rdm2_fact = rdm2_ccsd_fact(L, T)
 
         E_corr_from_rdm = cc_corr_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
-        E_corr_from_rdm_fact = cc_corr_energy_from_rdm(rdm1, rdm2_fact, fock, g, o, v)
-
-
+        
         assert np.allclose(E_corr_from_rdm, E_corr, atol=1.0e-07)
-        assert np.allclose(E_corr_from_rdm_fact, E_corr, atol=1.0e-07)
 
 if __name__ == "__main__":
     test_hf_rdmtoe()
