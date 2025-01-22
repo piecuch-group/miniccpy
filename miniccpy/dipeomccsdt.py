@@ -193,6 +193,11 @@ def build_HR2(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     X2 += (3.0 / 6.0) * np.einsum("cmke,ijem->ijck", H2[v, o, o, v], r2, optimize=True)
     # terms contracted with T3
     X2 += (1.0 / 12.0) * np.einsum("ef,efcijk->ijck", I_vv, t3, optimize=True)
+    ##
+    # 3-body HBars
+    ##
+    #I_vooooo = 0.5 * np.einsum("mnef,efcijk->cmnijk", H2[o, o, v, v], t3, optimize=True)
+    #X2 += (1.0 / 12.0) * np.einsum("cmnijk,mn->ijck", I_vooooo, r1, optimize=True)
     # terms contracted with R(4h-2p)
     X2 += (1.0 / 6.0) * np.einsum("me,ijcekm->ijck", H1[o, v], r3, optimize=True)
     X2 -= (3.0 / 12.0) * np.einsum("mnkf,ijcfmn->ijck", H2[o, o, o, v], r3, optimize=True)
@@ -256,6 +261,38 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     X3 += (4.0 / 48.0) * np.einsum("ie,ecdjkl->ijcdkl", I_vo, t3, optimize=True)
     X3 += (6.0 / 48.0) * np.einsum("ijem,cdeklm->ijcdkl", I_oovo, t3, optimize=True)
     X3 += (8.0 / 96.0) * np.einsum("cekf,efdijl->ijcdkl", I_vvov, t3, optimize=True)
+    ##
+    # 3-body HBars
+    ##
+    #I_vvoooo = (
+    #        (1.0 / 12.0) * np.einsum("me,ecdikl->cdmkli", H1[o, v], t3, optimize=True)
+    #        + (3.0 / 12.0) * np.einsum("mnif,cdfkln->cdmkli", H2[o, o, o, v], t3, optimize=True)
+    #        + (2.0 / 24.0) * np.einsum("dmef,efclik->cdmkli", H2[v, o, v, v], t3, optimize=True)
+    #)
+    #I_vvoooo -= np.transpose(I_vvoooo, (0, 1, 2, 3, 5, 4))
+    #I_vvoooo -= np.transpose(I_vvoooo, (0, 1, 2, 4, 3, 5)) + np.transpose(I_vvoooo, (0, 1, 2, 5, 4, 3))
+    #I_vvoooo -= np.transpose(I_vvoooo, (1, 0, 2, 3, 4, 5))
+    #X3 -= (4.0 / 48.0) * np.einsum("cdmkli,mj->ijcdkl", I_vvoooo, r1, optimize=True)
+    #
+    #I_vooooo = 0.5 * np.einsum("mnef,efcijk->cmnkij", H2[o, o, v, v], t3, optimize=True)
+    #X3 += (8.0 / 96.0) * np.einsum("cmnkij,mndl->ijcdkl", I_vooooo, r2, optimize=True)
+    #
+    #I_vvooov = np.einsum("mnef,cdeklm->cdnklf", H2[o, o, v, v], t3, optimize=True)
+    #X3 += (6.0 / 48.0) * np.einsum("cdnklf,ijfn->ijcdkl", I_vvooov, r2, optimize=True)
+    ##
+    # 4-body HBars
+    ##
+    #I_vvoooooo = (
+    #        np.einsum("mnie,ecdjkl->cdmnklij", H2[o, o, o, v], t3, optimize=True)
+    #        - np.einsum("mnje,ecdikl->cdmnklij", H2[o, o, o, v], t3, optimize=True)
+    #        - np.einsum("mnke,ecdjil->cdmnklij", H2[o, o, o, v], t3, optimize=True)
+    #        - np.einsum("mnle,ecdjki->cdmnklij", H2[o, o, o, v], t3, optimize=True)
+    #)
+    #X3 += (1.0 / 96.0) * np.einsum("cdmnklij,mn->ijcdkl", I_vvoooooo, r1, optimize=True)
+    #
+    #I_vvooooov = np.einsum("mnef,ecdikl->cdmnklif", H2[o, o, v, v], t3, optimize=True)
+    #X3 -= (4.0 / 96.0) * np.einsum("cdmnklif,mjfn->ijcdkl", I_vvooooov, r2, optimize=True)
+    #
     # terms contracted with R3
     X3 += (2.0 / 48.0) * np.einsum("de,ijcekl->ijcdkl", H1[v, v], r3, optimize=True) # T2
     X3 -= (4.0 / 48.0) * np.einsum("mi,mjcdkl->ijcdkl", H1[o, o], r3, optimize=True) # T2
@@ -268,4 +305,3 @@ def build_HR3(r1, r2, r3, t1, t2, t3, H1, H2, o, v):
     X3 -= np.transpose(X3, (1, 0, 2, 3, 4, 5)) + np.transpose(X3, (4, 1, 2, 3, 0, 5)) # A(i/jk)
     X3 -= np.transpose(X3, (5, 1, 2, 3, 4, 0)) + np.transpose(X3, (0, 5, 2, 3, 4, 1)) + np.transpose(X3, (0, 1, 2, 3, 5, 4)) # A(l/ijk)
     return X3
-
