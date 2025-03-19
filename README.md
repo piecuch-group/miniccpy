@@ -24,21 +24,21 @@ as well as two-component relativistic approaches and nuclear structure calculati
 - CCSD(T)
 - CR-CC(2,3)
 - CC3
-- CCSDT(a)*
+- CCSD(T)(a)*
 - CCSDT
 - CCSDTQ
 ### Excited-state EOMCC methodologies 
 - EOMCCSD
 - CR-EOMCC(2,3)
 - EOM-CC3
-- EOMCCSDT(a)*
+- EOMCCSD(T)(a)*
 - EOMCCSDT
 - IP-EOMCCSD(2h-1p)
-- IP-EOMCCSDT(a)*
+- IP-EOMCCSD(T)(a)*
 - IP-EOMCCSD(3h-2p)
 - EA-EOMCCSD(2p-1h)
 - EA-EOMCCSD(3p-2h)
-- EA-EOMCCSDT(a)*
+- EA-EOMCCSD(T)(a)*
 - DIP-EOMCCSD(3h-1p)
 - DIP-EOMCCSD(4h-2p)
 - DEA-EOMCCSD(3p-1h)
