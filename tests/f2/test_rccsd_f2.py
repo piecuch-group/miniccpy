@@ -1,7 +1,7 @@
 import numpy as np
 from miniccpy.driver import run_scf, run_cc_calc, get_hbar, run_leftcc_calc
 from miniccpy.rccsd_density import build_rdm1, build_rdm2
-from miniccpy.energy import cc_energy_from_rdm
+from miniccpy.energy import rcc_energy_from_rdm
 
 def test_rccsd_f2():
 
@@ -20,7 +20,7 @@ def test_rccsd_f2():
         # Construct 1- and 2-body RDMs
         rdm1 = build_rdm1(T, L)
         rdm2 = build_rdm2(T, L)
-        E_corr_from_rdm = cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
+        E_corr_from_rdm = rcc_energy_from_rdm(rdm1, rdm2, fock, g, o, v)
 
         #
         # Check the results

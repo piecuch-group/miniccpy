@@ -4,7 +4,7 @@ from miniccpy.pspace import get_active_triples_pspace
 
 def test_cct3_h8():
 
-        basis = 'dz'
+        basis = 'cc-pvdz'
         nfrozen = 0
 
         # Define molecule geometry and basis set

@@ -9,7 +9,7 @@ TARGETS := $(addsuffix $(EXT_SUFFIX), $(MODULES))
 
 # If OpenMP is not available, remove the last two flags, -fopenmp, -lgomp
 # For GitHub CI pipeline, remove OpenMP
-FFLAGS := -std=f2018 -O3 -ffree-line-length-512# -march=native -mtune=native -mavx -fopenmp -lgomp
+FFLAGS := -std=f2018 -O3 -ffree-line-length-512 -fbounds-check# -march=native -mtune=native -mavx -fopenmp -lgomp
 
 .PHONY: all clean
 

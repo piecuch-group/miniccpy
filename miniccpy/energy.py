@@ -1,6 +1,37 @@
 import numpy as np
 
 def cc_energy_from_rdm(rdm1, rdm2, fock, g, o, v):
+    '''Calculate correlation energy using the 1- and 2-body RDMs.'''
+    # orbital slicing (correlated section, excluding frozen core)
+    no, nu = fock[o, v].shape
+    corr_o = slice(0, no)
+    corr_v = slice(no, no + nu)
+
+    # One-electron energy
+    e_ov = np.einsum("ia,ai->", fock[o, v], rdm1[corr_v, corr_o])
+    e_vo = np.einsum("ai,ia->", fock[v, o], rdm1[corr_o, corr_v])
+    e_oo = np.einsum('ij,ji->', fock[o, o], rdm1[corr_o, corr_o])
+    e_vv = np.einsum('ab,ba->', fock[v, v], rdm1[corr_v, corr_v])
+    onebody = e_ov + e_vo + e_oo + e_vv
+
+    # Two-electron energy
+    e_oooo = 0.25 * np.einsum('ijkl,klij->', g[o, o, o, o], rdm2[corr_o, corr_o, corr_o, corr_o])
+    e_ooov = 0.5 * np.einsum('ijka,kaij->', g[o, o, o, v], rdm2[corr_o, corr_v, corr_o, corr_o])
+    e_oovv = 0.25 * np.einsum('ijab,abij->', g[o, o, v, v], rdm2[corr_v, corr_v, corr_o, corr_o])
+
+    e_ovoo = 0.5 * np.einsum('iajk,jkia->', g[o, v, o, o], rdm2[corr_o, corr_o, corr_o, corr_v])
+    e_ovov = np.einsum('iajb,jbia->', g[o, v, o, v], rdm2[corr_o, corr_v, corr_o, corr_v])
+    e_ovvv = 0.5 * np.einsum('iabc,bcia->', g[o, v, v, v], rdm2[corr_v, corr_v, corr_o, corr_v])
+
+    e_vvoo = 0.25 * np.einsum('abij,ijab->', g[v, v, o, o], rdm2[corr_o, corr_o, corr_v, corr_v])
+    e_vvov = 0.5 * np.einsum('abic,icab->', g[v, v, o, v], rdm2[corr_o, corr_v, corr_v, corr_v])
+    e_vvvv = 0.25 * np.einsum('abcd,cdab->', g[v, v, v, v], rdm2[corr_v, corr_v, corr_v, corr_v])
+
+    twobody = e_oooo + e_ooov + e_oovv + e_ovoo + e_ovov + e_ovvv + e_vvoo + e_vvov + e_vvvv
+    corr_energy = onebody + twobody
+    return corr_energy
+
+def rcc_energy_from_rdm(rdm1, rdm2, fock, g, o, v):
     # orbital slicing (correlated section, excluding frozen core)
     no, nu = fock[o, v].shape
     corr_o = slice(0, no)

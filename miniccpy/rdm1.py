@@ -1,5 +1,39 @@
 import numpy as np
 
+def rdm1_ccsd(T, L):
+
+    t1, t2 = T
+    l1, l2 = L
+
+    # oo block: gamma_ij --i--.--j--
+    rdm1_oo = (
+                    -np.einsum('ei,ej->ij', l1, t1, optimize=True)
+                    -0.5*np.einsum('efim,efjm->ij', l2, t2, optimize=True)
+              )
+
+    #ov block: gamma_ia --ia--.
+    rdm1_ov = l1.transpose()
+
+    #vo block: gamma_ai .--ia--
+    rdm1_vo = (
+                    +np.einsum('em,aeim->ai', l1, t2, optimize=True)
+                    -np.einsum('em,ei,am->ai', l1, t1, t1, optimize=True)
+                    -0.5*np.einsum('efmn,efin,am->ai', l2, t2, t1, optimize=True)
+                    -0.5*np.einsum('efmn,afmn,ei->ai', l2, t2, t1, optimize=True)
+                )
+    rdm1_vo += t1.copy()
+
+    #vv block: gamma_ab --b--.--a--
+    rdm1_vv = (
+                    +np.einsum('bm,am->ab', l1, t1, optimize=True)
+                    +0.5*np.einsum('bemn,aemn->ab', l2, t2, optimize=True)
+                )
+
+    rdm1_oa = np.concatenate((rdm1_oo, rdm1_ov), axis=1)
+    rdm1_va = np.concatenate((rdm1_vo, rdm1_vv), axis=1)
+    rdm1 = np.concatenate((rdm1_oa, rdm1_va), axis=0)
+    return rdm1
+
 def rdm1_ccsdt(istate, jstate, L, T, R=None, r0=None):
 
     # Ensure that R is passed in for excited-state density matrices

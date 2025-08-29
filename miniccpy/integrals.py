@@ -20,7 +20,11 @@ def get_integrals_from_pyscf(meanfield):
     z, g = spatial_to_spinorb(e1int, e2int)
     g -= np.transpose(g, (0, 1, 3, 2))
 
+    # reorder integrals to be docc, socc_a, unocc_b, virt
+    z, g, _ = reorder_occ_first(meanfield, z, g)
+
     occ = slice(0, molecule.nelectron)
+
     fock = get_fock(z, g, occ)
     e_hf = hf_energy(z, g, occ)
     e_hf_test = hf_energy_from_fock(fock, g, occ)
@@ -28,6 +32,42 @@ def get_integrals_from_pyscf(meanfield):
     assert( abs(e_hf - e_hf_test) < 1.0e-09 )
 
     return z, g, fock, e_hf + molecule.energy_nuc(), molecule.energy_nuc()
+
+
+def reorder_occ_first(meanfield, z, g):
+    """
+    Reorder spin–orbital integrals so that occupied spin–orbitals are a
+    contiguous block. Works for RHF and ROHF (single set of spatial MOs).
+    """
+    nspin = z.shape[0]           # = 2 * nmo
+    nmo = nspin // 2
+    mo_occ = np.asarray(meanfield.mo_occ)  # length nmo, entries in {2,1,0} for ROHF
+
+    # Decide which spin is occupied for singly-occupied spatial MOs.
+    na, nb = meanfield.mol.nelec
+    singles_spin = 0 if na >= nb else 1      # 0: alpha, 1: beta
+
+    # Build occupied spin–orbital indices in the current (αβ interleaved) order.
+    occ_idx = []
+    for p, occ in enumerate(mo_occ):
+        if occ > 1.5:                         # doubly occupied
+            occ_idx.extend([2*p, 2*p+1])      # α and β
+        elif occ > 0.5:                       # singly occupied
+            occ_idx.append(2*p + singles_spin)
+
+    occ_idx = np.array(occ_idx, dtype=int)
+    assert len(occ_idx) == meanfield.mol.nelectron
+
+    # Put all remaining spin–orbitals after the occupied block (preserving order).
+    all_idx = np.arange(nspin)
+    virt_idx = all_idx[~np.isin(all_idx, occ_idx, assume_unique=False)]
+    perm = np.concatenate([occ_idx, virt_idx])
+
+    # Apply the permutation to 1e and 2e integrals.
+    z_reo = z[np.ix_(perm, perm)]
+    g_reo = g[np.ix_(perm, perm, perm, perm)]
+    return z_reo, g_reo, perm
+
 
 def get_integrals_from_pyscf_rhf(meanfield):
     """Obtain the spatial molecular orbital integrals from PySCF and convert them to
